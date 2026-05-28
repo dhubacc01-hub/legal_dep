@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ page_title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}" />
+  </head>
+  <body>
+    <main class="login-shell">
+      <section class="login-card">
+        <div class="login-brand">
+          <div class="brand-mark">Legal Department</div>
+          <div>
+            <p class="eyebrow">Юридический департамент</p>
+            <h1>Вход в систему</h1>
+          </div>
+        </div>
+
+        <form id="login-form" class="modal-form auth-form login-form" novalidate>
+          <label class="modal-full-width">
+            <span>Логин</span>
+            <input name="username" type="text" autocomplete="username" required />
+          </label>
+          <label class="modal-full-width">
+            <span>Пароль</span>
+            <input name="password" type="password" autocomplete="current-password" required />
+          </label>
+          <div class="modal-inline-status hidden" id="login-status" aria-live="polite"></div>
+          <div class="modal-actions">
+            <button class="primary-button" type="submit">Войти</button>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <script>
+      const loginForm = document.getElementById("login-form");
+      const loginStatus = document.getElementById("login-status");
+
+      function showLoginStatus(message, kind = "error") {
+        loginStatus.textContent = message;
+        loginStatus.classList.remove("hidden", "status-success", "status-error");
+        loginStatus.classList.add(kind === "success" ? "status-success" : "status-error");
+      }
+
+      loginForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        loginStatus.classList.add("hidden");
+        const payload = {
+          username: loginForm.username.value.trim(),
+          password: loginForm.password.value,
+        };
+        if (!payload.username || !payload.password) {
+          showLoginStatus("Введите логин и пароль.");
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) {
+            const errorPayload = await response.json().catch(() => ({}));
+            if (errorPayload.detail === "INVALID_CREDENTIALS") {
+              showLoginStatus("Неверный логин или пароль.");
+            } else if (errorPayload.detail === "USER_DISABLED") {
+              showLoginStatus("Учетная запись отключена.");
+            } else {
+              showLoginStatus("Не удалось выполнить вход.");
+            }
+            return;
+          }
+
+          window.location.href = "/";
+        } catch (error) {
+          console.error(error);
+          showLoginStatus("Не удалось связаться с сервером.");
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ page_title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-block">
+          <div class="brand-mark">Legal Department</div>
+          <div>
+            <p class="eyebrow">Юридический департамент</p>
+            <h1>Контроль взыскания с должников</h1>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="ghost-button" id="owner-button" type="button">Owner</button>
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="actions-bar">
+          <button class="primary-button" id="open-create-modal" type="button">
+            Добавить должника
+          </button>
+        </section>
+
+        <section class="active-filters hidden" id="active-filters" aria-live="polite">
+          <div class="active-filters-label">Активные фильтры</div>
+          <div class="active-filters-list" id="active-filters-list"></div>
+        </section>
+
+        <section class="table-card">
+          <div class="table-wrap">
+            <table>
+              <thead id="debtors-thead">
+                <tr class="header-row">
+                  <th>Действие</th>
+                  <th>Дата внесения</th>
+                  <th>Дата контракта</th>
+                  <th>Категория</th>
+                  <th>ФИО клиента</th>
+                  <th>№ договора</th>
+                  <th>Дата последнего неисполненного платежа</th>
+                  <th>Компания</th>
+                  <th>Город</th>
+                  <th>Суд</th>
+                  <th>Претензия</th>
+                  <th>Дата отправки претензии</th>
+                  <th>Кол-во дней с отправки претензии</th>
+                  <th>Кол-во дней долга</th>
+                  <th>Сумма долга (тг)</th>
+                  <th>Пеня (тг)</th>
+                  <th>Сумма гос. пошлины (тг)</th>
+                  <th>Общая сумма (тг)</th>
+                  <th>Направлен иск</th>
+                  <th>Дата отправки иска</th>
+                  <th>Иск принят</th>
+                  <th>Дата заседания</th>
+                  <th>Есть решение</th>
+                  <th>Решение</th>
+                  <th>Сумма выплаты по решению (тг)</th>
+                  <th>Получено (тг)</th>
+                  <th>Комментарий</th>
+                  <th>Номер дела</th>
+                  <th>Суд по делу</th>
+                  <th>Генерация претензии</th>
+                  <th>Генерация иска</th>
+                  <th>Удалить</th>
+                </tr>
+              </thead>
+              <tbody id="debtors-tbody">
+                <tr class="empty-row">
+                  <td colspan="32">Загрузка данных...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination-bar hidden" id="pagination-bar">
+            <div class="pagination-summary" id="pagination-summary"></div>
+            <div class="pagination-controls" id="pagination-controls"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-backdrop hidden" id="debtor-modal-backdrop">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="debtor-modal-title">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow" id="debtor-modal-eyebrow">Новая запись</p>
+            <h3 id="debtor-modal-title">Добавить должника</h3>
+          </div>
+          <button class="icon-button" id="close-debtor-modal" type="button" aria-label="Закрыть">
+            ×
+          </button>
+        </div>
+
+        <form id="debtor-form" class="modal-form">
+          <input type="hidden" name="debtor_id" />
+          <input type="hidden" name="contract_total_amount" />
+          <input type="hidden" name="contract_advance_amount" />
+
+          <label class="modal-full-width">
+            <span class="field-label-with-action">
+              <span>№ договора</span>
+              <button class="ghost-button inline-action-button" id="lookup-contract-button" type="button">CRM</button>
+            </span>
+            <input name="contract_number" type="text" required placeholder="081224/2т-2268" />
+          </label>
+
+          <div class="modal-inline-status hidden" id="crm-lookup-status" aria-live="polite"></div>
+
+          <label>
+            <span>ФИО клиента</span>
+            <input name="client_name" type="text" required readonly />
+          </label>
+
+          <label>
+            <span>Компания</span>
+            <input name="company" id="company-select" type="text" required readonly />
+          </label>
+
+          <label>
+            <span>Город</span>
+            <input name="city" id="city-select" type="text" readonly />
+          </label>
+
+          <label>
+            <span>Мобильный телефон</span>
+            <input name="mobile_phone" type="text" readonly />
+          </label>
+
+          <label>
+            <span>Домашний телефон</span>
+            <input name="home_phone" type="text" readonly />
+          </label>
+
+          <label class="modal-full-width">
+            <span>Адрес клиента</span>
+            <textarea name="address" rows="2"></textarea>
+          </label>
+
+          <label>
+            <span class="field-label-with-action">
+              <span>Суд</span>
+              <button class="ghost-button inline-action-button" id="open-court-modal" type="button">+</button>
+            </span>
+            <select name="court" id="court-select"></select>
+          </label>
+
+          <label>
+            <span>Дата последнего неисполненного платежа</span>
+            <input
+              name="last_missed_payment_date"
+              type="text"
+              class="modal-date-input date-input"
+              data-date-input="true"
+              placeholder="дд.мм.гггг"
+              autocomplete="off"
+              required
+            />
+          </label>
+
+          <label>
+            <span>Сумма долга (тг)</span>
+            <input name="debt_amount" type="number" min="0" step="0.01" required />
+          </label>
+
+          <div class="modal-actions">
+            <button class="secondary-button" id="cancel-debtor-modal" type="button">
+              Отменить
+            </button>
+            <button class="primary-button" id="debtor-submit-button" type="submit">
+              Сохранить
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="delete-modal-backdrop">
+      <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Подтверждение</p>
+            <h3 id="delete-modal-title">Удалить запись?</h3>
+          </div>
+          <button class="icon-button" id="close-delete-modal" type="button" aria-label="Закрыть">
+            ×
+          </button>
+        </div>
+        <p class="confirm-copy" id="delete-modal-text">
+          Запись будет удалена без возможности восстановления.
+        </p>
+        <div class="modal-actions">
+          <button class="secondary-button" id="cancel-delete-modal" type="button">Отменить</button>
+          <button class="danger-button" id="confirm-delete-button" type="button">Удалить</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="court-modal-backdrop">
+      <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="court-modal-title">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Новый суд</p>
+            <h3 id="court-modal-title">Добавить суд</h3>
+          </div>
+          <button class="icon-button" id="close-court-modal" type="button" aria-label="Закрыть">
+            ×
+          </button>
+        </div>
+
+        <form id="court-form" class="modal-form court-form">
+          <label class="modal-full-width">
+            <span>Название</span>
+            <input name="name" type="text" required />
+          </label>
+
+          <label>
+            <span>Город</span>
+            <select name="city" id="court-city-select" required></select>
+          </label>
+
+          <label>
+            <span>Область</span>
+            <select name="region" id="court-region-select" required></select>
+          </label>
+
+          <div class="modal-actions">
+            <button class="secondary-button" id="cancel-court-modal" type="button">Отмена</button>
+            <button class="primary-button" id="save-court-button" type="submit">Сохранить</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="claim-modal-backdrop">
+      <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="claim-modal-title">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Подтверждение данных</p>
+            <h3 id="claim-modal-title">Генерация претензии</h3>
+          </div>
+          <button class="icon-button" id="close-claim-modal" type="button" aria-label="Закрыть">
+            ×
+          </button>
+        </div>
+
+        <form id="claim-confirm-form" class="modal-form claim-confirm-form">
+          <input type="hidden" name="debtor_id" />
+
+          <label class="modal-static-field">
+            <span>ФИО клиента</span>
+            <input name="client_name" type="text" readonly />
+          </label>
+
+          <label class="modal-static-field">
+            <span>Телефон</span>
+            <input name="client_phone" type="text" readonly />
+          </label>
+
+          <label class="modal-static-field modal-full-width">
+            <span>Адрес клиента</span>
+            <textarea name="client_address" rows="2" readonly></textarea>
+          </label>
+
+          <label class="modal-static-field">
+            <span>Компания</span>
+            <input name="company_name" type="text" readonly />
+          </label>
+
+          <label class="modal-static-field">
+            <span>№ договора</span>
+            <input name="contract_number" type="text" readonly />
+          </label>
+
+          <div class="modal-full-width product-editor">
+            <div class="product-editor-header">
+              <span id="claim-products-title">Товары и количество</span>
+              <button class="secondary-button compact-button" id="claim-add-product" type="button">+</button>
+            </div>
+            <div class="product-editor-columns">
+              <span id="claim-product-name-label">Название</span>
+              <span id="claim-product-qty-label">Кол-во</span>
+              <span></span>
+            </div>
+            <div class="product-editor-list" id="claim-products-list"></div>
+          </div>
+
+          <label>
+            <span>Сумма долга (тг)</span>
+            <input name="debt_amount" type="number" min="0" step="0.01" required />
+          </label>
+
+          <div class="modal-actions">
+            <button class="secondary-button" id="cancel-claim-modal" type="button">Отмена</button>
+            <button class="primary-button" id="confirm-claim-button" type="submit">Генерировать</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="lawsuit-modal-backdrop">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="lawsuit-modal-title">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Подтверждение данных</p>
+            <h3 id="lawsuit-modal-title">Генерация иска</h3>
+          </div>
+          <button class="icon-button" id="close-lawsuit-modal" type="button" aria-label="Закрыть">
+            Г—
+          </button>
+        </div>
+
+        <form id="lawsuit-confirm-form" class="modal-form lawsuit-confirm-form" novalidate>
+          <input type="hidden" name="debtor_id" />
+
+          <label class="modal-static-field">
+            <span>ФИО клиента</span>
+            <input name="client_name" type="text" readonly />
+          </label>
+
+          <label class="modal-static-field">
+            <span>Компания</span>
+            <input name="company_name" type="text" readonly />
+          </label>
+
+          <label class="modal-static-field">
+            <span>№ договора</span>
+            <input name="contract_number" type="text" readonly />
+          </label>
+
+          <label class="modal-static-field">
+            <span>Дата договора</span>
+            <input name="contract_date" type="text" readonly />
+          </label>
+
+          <div class="modal-full-width product-editor">
+            <div class="product-editor-header">
+              <span id="lawsuit-products-title">Товары и количество</span>
+              <button class="secondary-button compact-button" id="lawsuit-add-product" type="button">+</button>
+            </div>
+            <div class="product-editor-columns">
+              <span id="lawsuit-product-name-label">Название</span>
+              <span id="lawsuit-product-qty-label">Кол-во</span>
+              <span></span>
+            </div>
+            <div class="product-editor-list" id="lawsuit-products-list"></div>
+          </div>
+
+          <label>
+            <span>Название суда</span>
+            <input name="court_name" type="text" required />
+          </label>
+
+          <label>
+            <span>Сумма долга (тг)</span>
+            <input name="debt_amount" type="number" min="0" step="0.01" required />
+          </label>
+
+          <label>
+            <span>Пеня (тг)</span>
+            <input name="penalty_amount" type="number" min="0" step="0.01" required />
+          </label>
+
+          <label>
+            <span>Госпошлина (тг)</span>
+            <input name="state_duty_amount" type="number" min="0" step="0.01" required />
+          </label>
+
+          <label>
+            <span>Рассрочка от</span>
+            <input
+              name="installment_from"
+              type="text"
+              class="modal-date-input date-input"
+              data-date-input="true"
+              placeholder="дд.мм.гггг"
+              autocomplete="off"
+              required
+            />
+          </label>
+
+          <label>
+            <span>Рассрочка до</span>
+            <input
+              name="installment_to"
+              type="text"
+              class="modal-date-input date-input"
+              data-date-input="true"
+              placeholder="дд.мм.гггг"
+              autocomplete="off"
+              required
+            />
+          </label>
+
+          <label class="modal-full-width">
+            <span>Ежемесячный равный платеж (тг)</span>
+            <input name="monthly_payment_amount" type="number" min="0.01" step="0.01" required />
+          </label>
+
+          <label class="modal-full-width">
+            <span>Оплачено в 1-м периоде (тг)</span>
+            <input name="first_period_paid_amount" type="number" min="0" step="0.01" value="0" required />
+          </label>
+
+          <div class="modal-actions">
+            <button class="secondary-button" id="cancel-lawsuit-modal" type="button">Отмена</button>
+            <button class="primary-button" id="confirm-lawsuit-button" type="submit">Генерировать</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="account-modal-backdrop">
+      <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="account-modal-title">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow" id="account-modal-eyebrow">Аккаунт</p>
+            <h3 id="account-modal-title">Профиль</h3>
+          </div>
+          <button class="icon-button" id="close-account-modal" type="button" aria-label="Закрыть">
+            &times;
+          </button>
+        </div>
+
+        <div class="account-summary" id="account-summary"></div>
+
+        <form id="change-password-form" class="modal-form auth-form" novalidate>
+          <label class="modal-full-width">
+            <span id="change-password-current-label">Текущий пароль</span>
+            <input name="current_password" type="password" autocomplete="current-password" required />
+          </label>
+          <label class="modal-full-width">
+            <span id="change-password-new-label">Новый пароль</span>
+            <input name="new_password" type="password" autocomplete="new-password" required />
+          </label>
+          <div class="modal-inline-status hidden" id="change-password-status" aria-live="polite"></div>
+          <div class="modal-actions">
+            <button class="secondary-button" id="logout-button" type="button">Выйти</button>
+            <button class="primary-button" id="change-password-submit" type="submit">Сменить пароль</button>
+          </div>
+        </form>
+
+        <div id="user-management-block" class="owner-block hidden">
+          <div class="owner-block-header">
+            <p class="eyebrow" id="user-management-eyebrow">Управление доступом</p>
+            <h4 id="user-management-title">Новый логин</h4>
+          </div>
+          <form id="create-user-form" class="modal-form auth-form" novalidate>
+            <label>
+              <span id="create-user-username-label">Логин</span>
+              <input name="username" type="text" autocomplete="off" required />
+            </label>
+            <label>
+              <span id="create-user-full-name-label">Имя сотрудника</span>
+              <input name="full_name" type="text" autocomplete="off" required />
+            </label>
+            <label>
+              <span id="create-user-role-label">Роль</span>
+              <select name="role">
+                <option value="admin">admin</option>
+                <option value="lawyer">lawyer</option>
+              </select>
+            </label>
+            <label>
+              <span id="create-user-temp-password-label">Временный пароль</span>
+              <input name="temporary_password" type="text" autocomplete="off" required />
+            </label>
+            <div class="modal-inline-status hidden" id="create-user-status" aria-live="polite"></div>
+            <div class="modal-actions">
+              <button class="primary-button" id="create-user-submit" type="submit">Создать логин</button>
+            </div>
+          </form>
+          <div class="users-list" id="users-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="force-password-modal-backdrop">
+      <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="force-password-modal-title">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow" id="force-password-modal-eyebrow">Первый вход</p>
+            <h3 id="force-password-modal-title">Смените временный пароль</h3>
+          </div>
+        </div>
+        <form id="force-password-form" class="modal-form auth-form" novalidate>
+          <label class="modal-full-width">
+            <span id="force-password-current-label">Текущий пароль</span>
+            <input name="current_password" type="password" autocomplete="current-password" required />
+          </label>
+          <label class="modal-full-width">
+            <span id="force-password-new-label">Новый пароль</span>
+            <input name="new_password" type="password" autocomplete="new-password" required />
+          </label>
+          <div class="modal-inline-status hidden" id="force-password-status" aria-live="polite"></div>
+          <div class="modal-actions">
+            <button class="primary-button" id="force-password-submit" type="submit">Сохранить пароль</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="date-picker-popover hidden" id="date-picker-popover">
+      <div class="date-picker-panel">
+        <div class="date-picker-header">
+          <button class="icon-button date-picker-nav" type="button" data-date-nav="-1">‹</button>
+          <div class="date-picker-title-group">
+            <button class="date-picker-title date-picker-title-month" type="button" data-date-nav="month-select"></button>
+            <button class="date-picker-title date-picker-title-year" type="button" data-date-nav="year-select"></button>
+          </div>
+          <button class="icon-button date-picker-nav" type="button" data-date-nav="1">›</button>
+        </div>
+        <div class="date-picker-weekdays">
+          <span>Пн</span>
+          <span>Вт</span>
+          <span>Ср</span>
+          <span>Чт</span>
+          <span>Пт</span>
+          <span>Сб</span>
+          <span>Вс</span>
+        </div>
+        <div class="date-picker-grid" id="date-picker-grid"></div>
+        <div class="date-picker-footer">
+          <button class="ghost-button date-picker-action" type="button" data-date-action="clear">Очистить</button>
+          <button class="primary-button date-picker-action" type="button" data-date-action="today">Сегодня</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      window.__APP_CONTEXT__ = {{ app_context_json | safe }};
+    </script>
+    <script src="{{ url_for('static', path='app.js') }}" defer></script>
+  </body>
+</html>
