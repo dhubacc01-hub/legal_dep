@@ -143,6 +143,7 @@ def init_db() -> None:
                 bik TEXT NOT NULL DEFAULT '',
                 bin TEXT NOT NULL DEFAULT '',
                 address TEXT NOT NULL DEFAULT '',
+                phone TEXT NOT NULL DEFAULT '',
                 kbe TEXT NOT NULL DEFAULT '',
                 account_number TEXT NOT NULL DEFAULT '',
                 bank_mfo TEXT NOT NULL DEFAULT '',
@@ -196,6 +197,7 @@ def init_db() -> None:
         ensure_column(connection, "company_requisites", "bik", "TEXT NOT NULL DEFAULT ''")
         ensure_column(connection, "company_requisites", "bin", "TEXT NOT NULL DEFAULT ''")
         ensure_column(connection, "company_requisites", "address", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "company_requisites", "phone", "TEXT NOT NULL DEFAULT ''")
         ensure_column(connection, "company_requisites", "kbe", "TEXT NOT NULL DEFAULT ''")
         ensure_column(connection, "company_requisites", "account_number", "TEXT NOT NULL DEFAULT ''")
         ensure_column(connection, "company_requisites", "bank_mfo", "TEXT NOT NULL DEFAULT ''")

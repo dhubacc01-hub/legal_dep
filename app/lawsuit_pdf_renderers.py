@@ -103,6 +103,7 @@ def _render_lawsuit_pdf_old(
         crm_context = {}
 
     company_name = requisites.get("company_name") or company_name_value or "—"
+    company_phone = normalize_text(requisites.get("phone")) or "—"
     court_name = normalize_text(payload.court_name) or normalize_text(debtor.get("court")) or "—"
     client_name = normalize_text(crm_context.get("client_name")) or normalize_text(debtor.get("client_name")) or "—"
     client_short_name = normalize_text(crm_context.get("client_short_name")) or build_short_client_name(client_name)
@@ -506,7 +507,7 @@ def _render_lawsuit_pdf_old(
         company_name,
         normalize_text(requisites.get("address")) or "—",
         f"СТИР: {normalize_text(requisites.get('bin')) or '—'}",
-        "Тел.:",
+        f"Тел.: {company_phone}",
         f"МФО: {normalize_text(requisites.get('bank_mfo')) or '—'}",
     ]
     uz_right_block_lines = [
@@ -728,6 +729,7 @@ def _render_lawsuit_pdf_uz(
         crm_context = {}
 
     company_name = requisites.get("company_name") or company_name_value or "—"
+    company_phone = normalize_text(requisites.get("phone")) or "—"
     court_name = normalize_text(payload.court_name) or normalize_text(debtor.get("court")) or "—"
     client_name = normalize_text(crm_context.get("client_name")) or normalize_text(debtor.get("client_name")) or "—"
     client_short_name = normalize_text(crm_context.get("client_short_name")) or build_short_client_name(client_name)
@@ -1149,7 +1151,7 @@ def _render_lawsuit_pdf_uz(
         company_name,
         normalize_text(requisites.get("address")) or "—",
         f"СТИР: {normalize_text(requisites.get('bin')) or '—'}",
-        "Тел.:",
+        f"Тел.: {company_phone}",
         f"МФО: {normalize_text(requisites.get('bank_mfo')) or '—'}",
     ]
     uz_right_block_lines = [

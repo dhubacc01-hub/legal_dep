@@ -129,6 +129,7 @@ const UI_STRINGS = {
     lookupSuccess: "Данные из CRM подставлены в форму. Проверьте сумму долга и дату просрочки.",
     lookupConnectFailed: "Не удалось связаться с CRM.",
     firstMissedPaymentRequired: "Заполните дату первого неисполненного платежа.",
+    clientAlreadyExists: "Клиент уже существует.",
     saveRecordFailed: "Не удалось сохранить запись. Проверьте заполнение полей.",
     updateRecordFailed: "Не удалось обновить запись.",
     saveChangeFailed: "Не удалось сохранить изменение.",
@@ -235,6 +236,7 @@ const UI_STRINGS = {
     lookupSuccess: "CRM data has been inserted into the form. Check the debt amount and overdue date.",
     lookupConnectFailed: "Could not connect to CRM.",
     firstMissedPaymentRequired: "Fill in the date of the first missed payment.",
+    clientAlreadyExists: "The client already exists.",
     saveRecordFailed: "Failed to save the record. Check the required fields.",
     updateRecordFailed: "Failed to update the record.",
     saveChangeFailed: "Failed to save the change.",
@@ -315,6 +317,7 @@ const UI_STRINGS = {
     lookupSuccess: "Дані з CRM підставлені у форму. Перевірте суму боргу та дату прострочення.",
     lookupConnectFailed: "Не вдалося зв'язатися з CRM.",
     firstMissedPaymentRequired: "Заповніть дату першого невиконаного платежу.",
+    clientAlreadyExists: "Клієнт уже існує.",
     saveRecordFailed: "Не вдалося зберегти запис. Перевірте заповнення полів.",
     updateRecordFailed: "Не вдалося оновити запис.",
     saveChangeFailed: "Не вдалося зберегти зміну.",
@@ -395,6 +398,7 @@ const UI_STRINGS = {
     lookupSuccess: "Dane z CRM zostały wstawione do formularza. Sprawdź kwotę długu i datę opóźnienia.",
     lookupConnectFailed: "Nie udało się połączyć z CRM.",
     firstMissedPaymentRequired: "Uzupełnij datę pierwszej niespłaconej raty.",
+    clientAlreadyExists: "Klient już istnieje.",
     saveRecordFailed: "Nie udało się zapisać rekordu. Sprawdź pola.",
     updateRecordFailed: "Nie udało się zaktualizować rekordu.",
     saveChangeFailed: "Nie udało się zapisać zmiany.",
@@ -475,6 +479,7 @@ const UI_STRINGS = {
     lookupSuccess: "CRM деректері формаға қойылды. Қарыз сомасы мен кешігу күнін тексеріңіз.",
     lookupConnectFailed: "CRM-мен байланысу мүмкін болмады.",
     firstMissedPaymentRequired: "Бірінші орындалмаған төлем күнін толтырыңыз.",
+    clientAlreadyExists: "Клиент бұрыннан бар.",
     saveRecordFailed: "Жазбаны сақтау мүмкін болмады. Өрістерді тексеріңіз.",
     updateRecordFailed: "Жазбаны жаңарту мүмкін болмады.",
     saveChangeFailed: "Өзгерісті сақтау мүмкін болмады.",
@@ -1625,6 +1630,11 @@ async function handleModalSubmit(event) {
   }
 
   if (!response.ok) {
+    const errorPayload = await response.json().catch(() => ({}));
+    if (state.modalMode === "create" && errorPayload.detail === "CLIENT_ALREADY_EXISTS") {
+      alert(t("clientAlreadyExists"));
+      return;
+    }
     alert(state.modalMode === "create" ? t("saveRecordFailed") : t("updateRecordFailed"));
     return;
   }

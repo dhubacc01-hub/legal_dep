@@ -2190,8 +2190,22 @@ def list_debtors(country: str = DEFAULT_COUNTRY, _user: dict[str, Any] = Depends
 def create_debtor(payload: DebtorCreate, _user: dict[str, Any] = Depends(require_app_user)) -> dict[str, Any]:
     created_at = datetime.now().replace(microsecond=0).isoformat()
     country = normalize_country_code(payload.country)
+    normalized_contract_number = normalize_text(payload.contract_number)
 
     with get_connection() as connection:
+        existing_duplicate = connection.execute(
+            """
+            SELECT id
+            FROM debtors
+            WHERE COALESCE(country, ?) = ?
+              AND UPPER(TRIM(contract_number)) = UPPER(TRIM(?))
+            LIMIT 1
+            """,
+            (DEFAULT_COUNTRY, country, normalized_contract_number),
+        ).fetchone()
+        if existing_duplicate is not None:
+            raise HTTPException(status_code=409, detail="CLIENT_ALREADY_EXISTS")
+
         if payload.preserve_city_with_manual_court:
             city_value = str(payload.city or "").strip()
             court_value = str(payload.court or "").strip()
