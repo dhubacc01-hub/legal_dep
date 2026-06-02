@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-import json
 import re
 from collections import defaultdict
 from functools import lru_cache
-from pathlib import Path
 
+from app.kz_courts_data import KZ_OFFICIAL_COURT_MAPPING_DATA
 from app.reference_data import KAZAKHSTAN_CITIES
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-COURTS_MAPPING_PATH = BASE_DIR / "data" / "courts_parsed" / "sequential_mapping.json"
 
 REGION_DEFAULT_CITY = {
     "город Астана": "Астана",
@@ -106,10 +102,10 @@ CITY_ALIASES = _build_city_aliases()
 
 
 def _load_pairs() -> list[dict[str, object]]:
-    if not COURTS_MAPPING_PATH.exists():
+    if not isinstance(KZ_OFFICIAL_COURT_MAPPING_DATA, dict):
         return []
-    payload = json.loads(COURTS_MAPPING_PATH.read_text(encoding="utf-8"))
-    return payload.get("pairs", [])
+    pairs = KZ_OFFICIAL_COURT_MAPPING_DATA.get("pairs", [])
+    return pairs if isinstance(pairs, list) else []
 
 
 def _extract_locality_from_court_name(court_name: str, region_name: str) -> str:

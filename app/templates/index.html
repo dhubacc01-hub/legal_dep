@@ -44,7 +44,7 @@
                   <th>Категория</th>
                   <th>ФИО клиента</th>
                   <th>№ договора</th>
-                  <th>Дата последнего неисполненного платежа</th>
+                  <th>Дата первого неисполненного платежа</th>
                   <th>Компания</th>
                   <th>Город</th>
                   <th>Суд</th>
@@ -152,8 +152,18 @@
             <select name="court" id="court-select"></select>
           </label>
 
+          <div class="modal-full-width manual-court-picker">
+            <button class="secondary-button compact-button" id="toggle-manual-court-picker" type="button">
+              Выбрать суд в другом регионе
+            </button>
+            <div class="manual-court-picker-panel hidden" id="manual-court-picker-panel">
+              <input id="manual-court-search" type="text" placeholder="Поиск суда" autocomplete="off" />
+              <select id="manual-court-select" size="6"></select>
+            </div>
+          </div>
+
           <label>
-            <span>Дата последнего неисполненного платежа</span>
+            <span>Дата первого неисполненного платежа</span>
             <input
               name="last_missed_payment_date"
               type="text"
@@ -355,7 +365,7 @@
 
           <label>
             <span>Название суда</span>
-            <input name="court_name" type="text" required />
+            <input name="court_name" type="text" required readonly />
           </label>
 
           <label>

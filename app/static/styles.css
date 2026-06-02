@@ -978,6 +978,25 @@ tbody tr:hover .sticky-col {
   line-height: 1;
 }
 
+.manual-court-picker {
+  display: grid;
+  gap: 10px;
+}
+
+.manual-court-picker-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.manual-court-picker-panel select {
+  min-height: 180px;
+  padding: 8px 10px;
+}
+
 .login-shell {
   min-height: 100vh;
   display: grid;

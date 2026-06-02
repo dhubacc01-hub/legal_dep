@@ -6,7 +6,6 @@ import re
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
-from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -120,36 +119,25 @@ def get_country_context_keys(country: str) -> set[str]:
 
 class DiSellApiClient:
     def __init__(self) -> None:
-        local_config = self._load_local_config()
         self.api_base_url = str(
-            os.getenv("DISELL_API_BASE_URL") or local_config.get("api_base_url") or "https://disell.eu/api/v1"
+            os.getenv("DISELL_API_BASE_URL") or "https://disell.eu/api/v1"
         ).rstrip("/")
         self.auth_base_url = str(
-            os.getenv("DISELL_AUTH_BASE_URL") or local_config.get("auth_base_url") or "https://disell.eu/api"
+            os.getenv("DISELL_AUTH_BASE_URL") or "https://disell.eu/api"
         ).rstrip("/")
-        self.username = str(os.getenv("DISELL_API_USERNAME") or local_config.get("username") or "").strip()
-        self.password = str(os.getenv("DISELL_API_PASSWORD") or local_config.get("password") or "").strip()
+        self.username = str(os.getenv("DISELL_API_USERNAME") or "").strip()
+        self.password = str(os.getenv("DISELL_API_PASSWORD") or "").strip()
         self.client_id = str(
-            os.getenv("DISELL_API_CLIENT_ID") or local_config.get("client_id") or "crm_api"
+            os.getenv("DISELL_API_CLIENT_ID") or "crm_api"
         ).strip() or "crm_api"
         self.client_secret = str(
-            os.getenv("DISELL_API_CLIENT_SECRET") or local_config.get("client_secret") or "crm_pass"
+            os.getenv("DISELL_API_CLIENT_SECRET") or "crm_pass"
         ).strip() or "crm_pass"
         self.grant_type = str(
-            os.getenv("DISELL_API_GRANT_TYPE") or local_config.get("grant_type") or "password"
+            os.getenv("DISELL_API_GRANT_TYPE") or "password"
         ).strip() or "password"
-        self.timeout = float(os.getenv("DISELL_API_TIMEOUT") or local_config.get("timeout") or "20")
+        self.timeout = float(os.getenv("DISELL_API_TIMEOUT") or "20")
         self._token: str | None = None
-
-    @staticmethod
-    def _load_local_config() -> dict[str, Any]:
-        path = Path(__file__).resolve().parent.parent / "data" / "crm_credentials.json"
-        if not path.exists():
-            return {}
-        try:
-            return json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return {}
 
     def lookup_debtor_prefill(self, contract_number: str, country: str = DEFAULT_COUNTRY) -> dict[str, Any]:
         context = self.find_deal_context(contract_number, country=country)

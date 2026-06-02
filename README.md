@@ -1,23 +1,26 @@
 # Legal Department
 
-Базовая версия приложения для юридического департамента на `FastAPI` и `SQLite`.
+Веб-приложение юридического департамента на `FastAPI` и `SQLite`.
 
-## Что уже есть
+## Что умеет
 
-- одна вкладка навигации: `Взыскание с должников`;
-- темная таблица под ваш сценарий;
-- модальное окно `Добавить должника`;
-- хранение записей в `SQLite`;
-- автоматический расчет:
-  - даты контракта из номера договора;
-  - количества дней долга;
-  - количества дней с отправки претензии;
-  - пени;
-  - общей суммы;
-  - суммы госпошлины;
-- стартовые справочники категорий, компаний, городов и судов.
+- ведение базы должников по Казахстану и Узбекистану;
+- импорт клиентов из Excel/CSV через staging-контур;
+- авторизация с ролями `owner`, `admin`, `lawyer`;
+- подтягивание данных клиента из CRM по номеру договора;
+- генерация претензий и исков;
+- работа со справочниками городов, судов и компаний;
+- ручное добавление пользовательских судов.
 
-## Запуск
+## Стек
+
+- `FastAPI`
+- `SQLite`
+- `Jinja2`
+- `Pillow`
+- `openpyxl`
+
+## Запуск локально
 
 ```bash
 python -m pip install -r requirements.txt
@@ -26,39 +29,61 @@ python -m uvicorn app.main:app --reload
 
 После запуска откройте [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
+## CRM
+
+Для работы CRM-подтяжки приложение читает переменные окружения:
+
+- `DISELL_API_USERNAME`
+- `DISELL_API_PASSWORD`
+- `DISELL_API_BASE_URL`
+- `DISELL_AUTH_BASE_URL`
+- `DISELL_API_CLIENT_ID`
+- `DISELL_API_CLIENT_SECRET`
+- `DISELL_API_GRANT_TYPE`
+- `DISELL_API_TIMEOUT`
+
+Для продакшена рекомендуется использовать только `env`/`systemd EnvironmentFile`.
+
 ## Структура
 
-- `app/main.py` — FastAPI, HTML и API.
-- `app/database.py` — SQLite и инициализация таблицы.
-- `app/reference_data.py` — справочники.
-- `app/templates/index.html` — страница.
-- `app/static/styles.css` — стили.
-- `app/static/app.js` — логика фронтенда.
+- [D:\Projects\Legal_Dep\app\main.py](</D:/Projects/Legal_Dep/app/main.py>) — основной FastAPI-контур, PDF и бизнес-логика.
+- [D:\Projects\Legal_Dep\app\database.py](</D:/Projects/Legal_Dep/app/database.py>) — схема SQLite и миграции.
+- [D:\Projects\Legal_Dep\app\reference_data.py](</D:/Projects/Legal_Dep/app/reference_data.py>) — справочники категорий, решений, стран и городов.
+- [D:\Projects\Legal_Dep\app\court_catalog.py](</D:/Projects/Legal_Dep/app/court_catalog.py>) — сборка каталога судов KZ.
+- [D:\Projects\Legal_Dep\app\company_requisites_data.py](</D:/Projects/Legal_Dep/app/company_requisites_data.py>) — встроенный seed реквизитов компаний.
+- [D:\Projects\Legal_Dep\app\disell_api.py](</D:/Projects/Legal_Dep/app/disell_api.py>) — клиент CRM API.
+- [D:\Projects\Legal_Dep\app\templates\index.html](</D:/Projects/Legal_Dep/app/templates/index.html>) — основная страница.
+- [D:\Projects\Legal_Dep\app\templates\login.html](</D:/Projects/Legal_Dep/app/templates/login.html>) — страница входа.
+- [D:\Projects\Legal_Dep\app\static\app.js](</D:/Projects/Legal_Dep/app/static/app.js>) — фронтенд-логика.
+- [D:\Projects\Legal_Dep\app\static\styles.css](</D:/Projects/Legal_Dep/app/static/styles.css>) — стили.
 
-## Excel Import
+## Импорт данных
 
-Импорт сделан через отдельный staging-контур, чтобы не ломать основную таблицу грязными строками из старого Excel.
+Основной поток:
 
-- `POST /api/imports/preview-local`
-  Принимает JSON вида `{ "path": "D:\\\\...\\\\clients.xlsx" }`, читает `.xlsx`, `.xlsm` или `.csv` и создает пакет предварительной проверки.
-- `GET /api/imports`
-  Возвращает список пакетов импорта.
-- `GET /api/imports/{batch_id}`
-  Возвращает пакет и строки со статусами `ok`, `needs_review`, `blocked`.
-- `POST /api/imports/{batch_id}/apply`
-  Переносит в основную таблицу только строки со статусом `ok`.
+1. `POST /api/imports/preview-local`
+2. просмотр пакета импорта и конфликтов
+3. `POST /api/imports/{batch_id}/apply`
 
-Что сохраняется для каждой импортируемой строки:
+В `import_rows` сохраняются:
 
-- оригинальные данные строки;
-- нормализованные поля;
+- исходные данные строки;
+- нормализованные данные;
 - ошибки и предупреждения;
-- категория из файла;
-- категория, рассчитанная по правилам системы.
+- предложенная категория;
+- связь с созданным должником, если строка применена.
 
-Рекомендуемый порядок:
+## Деплой на VPS
 
-1. Положить Excel рядом с проектом или дать его локальный путь.
-2. Запустить `preview-local`.
-3. Посмотреть конфликты в `needs_review` и `blocked`.
-4. Только после этого делать `apply`.
+Готовые серверные файлы лежат в [D:\Projects\Legal_Dep\deploy](</D:/Projects/Legal_Dep/deploy>):
+
+- [D:\Projects\Legal_Dep\deploy\VPS_SETUP.md](</D:/Projects/Legal_Dep/deploy/VPS_SETUP.md>)
+- [D:\Projects\Legal_Dep\deploy\legal-dep.service](</D:/Projects/Legal_Dep/deploy/legal-dep.service>)
+- [D:\Projects\Legal_Dep\deploy\nginx-legal-dep.conf](</D:/Projects/Legal_Dep/deploy/nginx-legal-dep.conf>)
+
+Рекомендуемый порядок обновления на сервере:
+
+1. коммит и push в Git;
+2. `git pull` на VPS;
+3. `pip install -r requirements.txt`, если менялись зависимости;
+4. `systemctl restart legal-dep`.

@@ -17,6 +17,7 @@ HEADER_ALIASES = {
     "contract_number": ["№ договора", "номер договора", "договор", "номер контракта"],
     "last_missed_payment_date": [
         "дата последнего неисполненного платежа",
+        "дата первого неисполненного платежа",
         "дата последнего платежа",
         "дата просрочки",
     ],
@@ -210,7 +211,7 @@ def normalize_import_row(
             errors.append(f"Обязательное поле «{field_name}» пустое или не найдено.")
 
     if normalized.get("last_missed_payment_date") is None:
-        errors.append("Не найдена дата последнего неисполненного платежа.")
+        errors.append("Не найдена дата первого неисполненного платежа.")
 
     if normalized.get("debt_amount") is None:
         errors.append("Не найдена сумма долга.")

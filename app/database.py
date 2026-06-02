@@ -129,6 +129,29 @@ def init_db() -> None:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS company_requisites (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                country TEXT NOT NULL DEFAULT 'kz',
+                company_key TEXT NOT NULL,
+                company_name TEXT NOT NULL,
+                company_block TEXT NOT NULL DEFAULT '',
+                director_name TEXT NOT NULL DEFAULT '',
+                bank_name TEXT NOT NULL DEFAULT '',
+                iik TEXT NOT NULL DEFAULT '',
+                bik TEXT NOT NULL DEFAULT '',
+                bin TEXT NOT NULL DEFAULT '',
+                address TEXT NOT NULL DEFAULT '',
+                kbe TEXT NOT NULL DEFAULT '',
+                account_number TEXT NOT NULL DEFAULT '',
+                bank_mfo TEXT NOT NULL DEFAULT '',
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL DEFAULT ''
+            )
+            """
+        )
         ensure_column(connection, "debtors", "parent_debtor_id", "INTEGER")
         ensure_column(connection, "debtors", "imported_claim_sent_days", "INTEGER")
         ensure_column(connection, "debtors", "imported_debt_days", "INTEGER")
@@ -163,6 +186,22 @@ def init_db() -> None:
         ensure_column(connection, "user_sessions", "session_token", "TEXT")
         ensure_column(connection, "user_sessions", "created_at", "TEXT")
         ensure_column(connection, "user_sessions", "expires_at", "TEXT")
+        ensure_column(connection, "company_requisites", "country", "TEXT NOT NULL DEFAULT 'kz'")
+        ensure_column(connection, "company_requisites", "company_key", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "company_requisites", "company_name", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "company_requisites", "company_block", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "company_requisites", "director_name", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "company_requisites", "bank_name", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "company_requisites", "iik", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "company_requisites", "bik", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "company_requisites", "bin", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "company_requisites", "address", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "company_requisites", "kbe", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "company_requisites", "account_number", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "company_requisites", "bank_mfo", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "company_requisites", "is_active", "INTEGER NOT NULL DEFAULT 1")
+        ensure_column(connection, "company_requisites", "created_at", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "company_requisites", "updated_at", "TEXT NOT NULL DEFAULT ''")
         ensure_custom_courts_schema(connection)
         connection.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique ON users(username)"
@@ -172,6 +211,9 @@ def init_db() -> None:
         )
         connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id)"
+        )
+        connection.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_company_requisites_country_key_unique ON company_requisites(country, company_key)"
         )
 
 

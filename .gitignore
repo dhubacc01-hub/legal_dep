@@ -11,9 +11,16 @@ Thumbs.db
 *.db
 *.db-journal
 
+# Runtime and local data artifacts
 data/generated/
 data/courts_parsed/
 data/crm_credentials.json
+data/company_requisites.json
+data/uz_courts_catalog.json
+data/company_requisites_source.xlsx
+data/*.xlsx
+data/*.csv
+data/*.docx
 
 data/courts_raw_dump.txt
 data/debt_fix.xlsx
@@ -27,3 +34,4 @@ data/uz_without_debt.xlsx
 temp_test.db
 temp_test.db-journal
 tmp_*.ps1
+.env.local.ps1

@@ -35,6 +35,7 @@ class DebtorCreate(BaseModel):
     company: str = Field(min_length=1, max_length=255)
     city: str = Field(default="", max_length=255)
     court: str = Field(default="", max_length=255)
+    preserve_city_with_manual_court: bool = False
     last_missed_payment_date: date
     debt_amount: float = Field(ge=0)
     mobile_phone: str | None = Field(default=None, max_length=255)
@@ -53,6 +54,7 @@ class DebtorUpdate(BaseModel):
     company: str | None = None
     city: str | None = None
     court: str | None = None
+    preserve_city_with_manual_court: bool | None = None
     claim_sent: bool | None = None
     claim_sent_date: date | None = None
     debt_amount: float | None = Field(default=None, ge=0)

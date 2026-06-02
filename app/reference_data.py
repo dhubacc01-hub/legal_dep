@@ -1,8 +1,28 @@
 from __future__ import annotations
 
 from collections import defaultdict
-import json
-from pathlib import Path
+
+from app.uz_courts_data import UZ_COURT_CATALOG_DATA
+
+
+def _decode_mojibake(value):
+    if isinstance(value, str):
+        try:
+            return value.encode("latin1").decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            return value
+    if isinstance(value, list):
+        return [_decode_mojibake(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_decode_mojibake(item) for item in value)
+    if isinstance(value, set):
+        return {_decode_mojibake(item) for item in value}
+    if isinstance(value, dict):
+        return {
+            _decode_mojibake(key): _decode_mojibake(item)
+            for key, item in value.items()
+        }
+    return value
 
 DEFAULT_COUNTRY = "kz"
 SUPPORTED_COUNTRIES = ("kz", "uz")
@@ -156,78 +176,6 @@ KAZAKHSTAN_CITIES = sorted(
     }
 )
 
-_COURT_PAIRS = [
-    ("Астана", "Суд города Астаны"),
-    ("Астана", "Межрайонный суд по гражданским делам города Астаны"),
-    ("Астана", "Специализированный межрайонный экономический суд города Астаны"),
-    ("Астана", "Алматинский районный суд города Астаны"),
-    ("Астана", "Байконырский районный суд города Астаны"),
-    ("Астана", "Есильский районный суд города Астаны"),
-    ("Астана", "Нуринский районный суд города Астаны"),
-    ("Астана", "Сарыаркинский районный суд города Астаны"),
-    ("Алматы", "Алматинский городской суд"),
-    ("Алматы", "Специализированный межрайонный экономический суд города Алматы"),
-    ("Алматы", "Алмалинский районный суд города Алматы"),
-    ("Алматы", "Ауэзовский районный суд города Алматы"),
-    ("Алматы", "Бостандыкский районный суд города Алматы"),
-    ("Алматы", "Жетысуский районный суд города Алматы"),
-    ("Алматы", "Медеуский районный суд города Алматы"),
-    ("Алматы", "Наурызбайский районный суд города Алматы"),
-    ("Алматы", "Турксибский районный суд города Алматы"),
-    ("Шымкент", "Суд города Шымкента"),
-    ("Шымкент", "Межрайонный суд по гражданским делам города Шымкента"),
-    ("Шымкент", "Специализированный межрайонный экономический суд города Шымкента"),
-    ("Шымкент", "Абайский районный суд города Шымкента"),
-    ("Шымкент", "Аль-Фарабийский районный суд города Шымкента"),
-    ("Шымкент", "Енбекшинский районный суд города Шымкента"),
-    ("Шымкент", "Каратауский районный суд города Шымкента"),
-    ("Кокшетау", "Акмолинский областной суд"),
-    ("Конаев", "Алматинский областной суд"),
-    ("Актобе", "Актюбинский областной суд"),
-    ("Атырау", "Атырауский областной суд"),
-    ("Усть-Каменогорск", "Восточно-Казахстанский областной суд"),
-    ("Тараз", "Жамбылский областной суд"),
-    ("Талдыкорган", "Суд области Жетысу"),
-    ("Уральск", "Западно-Казахстанский областной суд"),
-    ("Караганда", "Карагандинский областной суд"),
-    ("Костанай", "Костанайский областной суд"),
-    ("Кызылорда", "Кызылординский областной суд"),
-    ("Актау", "Мангистауский областной суд"),
-    ("Павлодар", "Павлодарский областной суд"),
-    ("Петропавловск", "Северо-Казахстанский областной суд"),
-    ("Туркестан", "Туркестанский областной суд"),
-    ("Семей", "Суд области Абай"),
-    ("Жезказган", "Суд области Улытау"),
-    ("Косшы", "Суд города Косшы"),
-    ("Конаев", "Суд города Конаева"),
-    ("Талдыкорган", "Суд города Талдыкоргана"),
-    ("Семей", "Суд №2 города Семей"),
-    ("Павлодар", "Суд города Павлодара"),
-    ("Караганда", "Суд района имени Казыбек би города Караганды"),
-    ("Караганда", "Суд района имени Алихана Бокейхана города Караганды"),
-    ("Костанай", "Суд города Костаная"),
-    ("Актобе", "Суд №2 города Актобе"),
-    ("Атырау", "Суд №2 города Атырау"),
-    ("Тараз", "Суд №2 города Тараза"),
-    ("Уральск", "Суд №2 города Уральска"),
-    ("Кызылорда", "Суд №2 города Кызылорды"),
-    ("Актау", "Суд №2 города Актау"),
-]
-
-
-def build_courts_by_city() -> dict[str, list[str]]:
-    mapping: dict[str, list[str]] = defaultdict(list)
-    for city, court in _COURT_PAIRS:
-        mapping[city].append(court)
-
-    for city in KAZAKHSTAN_CITIES:
-        if city not in mapping:
-            mapping[city].append(f"Суд по месту подсудности ({city})")
-
-    return {city: sorted(courts) for city, courts in mapping.items()}
-
-
-COURTS_BY_CITY = build_courts_by_city()
 
 UZBEKISTAN_REGIONS_WITH_CITIES = {
     "г. Ташкент": [
@@ -361,7 +309,21 @@ COUNTRY_LABELS = {
     "uz": {"ru": "UZ Узбекистан", "pl": "UZ Uzbekistan", "en": "UZ Uzbekistan", "uk": "UZ Узбекистан", "kk": "UZ Өзбекстан"},
 }
 
-UZ_COURT_CATALOG_PATH = Path(__file__).resolve().parent.parent / "data" / "uz_courts_catalog.json"
+CATEGORIES = _decode_mojibake(CATEGORIES)
+COMPANIES = _decode_mojibake(COMPANIES)
+KAZAKHSTAN_COMPANIES = COMPANIES
+UZBEKISTAN_COMPANIES = _decode_mojibake(UZBEKISTAN_COMPANIES)
+DECISIONS = _decode_mojibake(DECISIONS)
+KAZAKHSTAN_CITIES = sorted(_decode_mojibake(KAZAKHSTAN_CITIES))
+UZBEKISTAN_REGIONS_WITH_CITIES = _decode_mojibake(UZBEKISTAN_REGIONS_WITH_CITIES)
+UZBEKISTAN_CITIES = sorted(
+    {city for cities in UZBEKISTAN_REGIONS_WITH_CITIES.values() for city in cities}
+)
+COUNTRY_COMPANIES = {
+    "kz": KAZAKHSTAN_COMPANIES,
+    "uz": UZBEKISTAN_COMPANIES,
+}
+COUNTRY_LABELS = _decode_mojibake(COUNTRY_LABELS)
 
 
 def build_static_country_catalog(
@@ -407,11 +369,8 @@ def build_static_country_catalog(
     }
 
 def load_uzbekistan_court_catalog() -> dict[str, object]:
-    if UZ_COURT_CATALOG_PATH.exists():
-        try:
-            return json.loads(UZ_COURT_CATALOG_PATH.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            pass
+    if isinstance(UZ_COURT_CATALOG_DATA, dict) and UZ_COURT_CATALOG_DATA:
+        return UZ_COURT_CATALOG_DATA
     return build_static_country_catalog(UZBEKISTAN_REGIONS_WITH_CITIES)
 
 

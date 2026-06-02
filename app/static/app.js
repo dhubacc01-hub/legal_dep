@@ -116,6 +116,9 @@ const UI_STRINGS = {
     deleteWarning: "Запись будет удалена без возможности восстановления. Если у нее есть вложенная подстрока возврата иска, она тоже удалится.",
     newCourt: "Новый суд",
     addCourt: "Добавить суд",
+    chooseCourtAnotherRegion: "Выбрать суд в другом регионе",
+    searchCourt: "Поиск суда",
+    noCourtsForCity: "По городу суды не найдены. Выберите суд вручную.",
     claimDataConfirm: "Подтверждение данных",
     generateClaim: "Генерация претензии",
     generateLawsuit: "Генерация иска",
@@ -125,6 +128,7 @@ const UI_STRINGS = {
     lookupFailed: "Не удалось получить данные из CRM.",
     lookupSuccess: "Данные из CRM подставлены в форму. Проверьте сумму долга и дату просрочки.",
     lookupConnectFailed: "Не удалось связаться с CRM.",
+    firstMissedPaymentRequired: "Заполните дату первого неисполненного платежа.",
     saveRecordFailed: "Не удалось сохранить запись. Проверьте заполнение полей.",
     updateRecordFailed: "Не удалось обновить запись.",
     saveChangeFailed: "Не удалось сохранить изменение.",
@@ -173,7 +177,7 @@ const UI_STRINGS = {
     roleOwner: "owner",
     roleAdmin: "admin",
     roleLawyer: "lawyer",
-    headers: ["Действие","Дата внесения","Дата контракта","Категория","ФИО клиента","№ договора","Дата последнего неисполненного платежа","Компания","Город","Суд","Претензия","Дата отправки претензии","Кол-во дней с отправки претензии","Кол-во дней долга","Сумма долга (тг)","Пеня (тг)","Сумма гос. пошлины (тг)","Общая сумма (тг)","Направлен иск","Дата отправки иска","Иск принят","Дата заседания","Есть решение","Решение","Сумма выплаты по решению (тг)","Получено (тг)","Комментарий","Номер дела","Суд по делу","Генерация претензии","Генерация иска","Удалить"],
+    headers: ["Действие","Дата внесения","Дата контракта","Категория","ФИО клиента","№ договора","Дата первого неисполненного платежа","Компания","Город","Суд","Претензия","Дата отправки претензии","Кол-во дней с отправки претензии","Кол-во дней долга","Сумма долга (тг)","Пеня (тг)","Сумма гос. пошлины (тг)","Общая сумма (тг)","Направлен иск","Дата отправки иска","Иск принят","Дата заседания","Есть решение","Решение","Сумма выплаты по решению (тг)","Получено (тг)","Комментарий","Номер дела","Суд по делу","Генерация претензии","Генерация иска","Удалить"],
     weekdays: ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"],
   },
   en: {
@@ -218,6 +222,9 @@ const UI_STRINGS = {
     deleteWarning: "The record will be deleted without recovery. If it has a nested claim-return subrow, it will be deleted too.",
     newCourt: "New court",
     addCourt: "Add court",
+    chooseCourtAnotherRegion: "Choose a court in another region",
+    searchCourt: "Search court",
+    noCourtsForCity: "No courts were found for this city. Choose a court manually.",
     claimDataConfirm: "Confirm data",
     generateClaim: "Generate claim",
     generateLawsuit: "Generate lawsuit",
@@ -227,6 +234,7 @@ const UI_STRINGS = {
     lookupFailed: "Failed to fetch data from CRM.",
     lookupSuccess: "CRM data has been inserted into the form. Check the debt amount and overdue date.",
     lookupConnectFailed: "Could not connect to CRM.",
+    firstMissedPaymentRequired: "Fill in the date of the first missed payment.",
     saveRecordFailed: "Failed to save the record. Check the required fields.",
     updateRecordFailed: "Failed to update the record.",
     saveChangeFailed: "Failed to save the change.",
@@ -294,6 +302,9 @@ const UI_STRINGS = {
     deleteWarning: "Запис буде видалено без можливості відновлення. Якщо є вкладений підрядок повернення позову, його теж буде видалено.",
     newCourt: "Новий суд",
     addCourt: "Додати суд",
+    chooseCourtAnotherRegion: "Вибрати суд в іншому регіоні",
+    searchCourt: "Пошук суду",
+    noCourtsForCity: "Для цього міста судів не знайдено. Виберіть суд вручну.",
     claimDataConfirm: "Підтвердження даних",
     generateClaim: "Генерація претензії",
     generateLawsuit: "Генерація позову",
@@ -303,6 +314,7 @@ const UI_STRINGS = {
     lookupFailed: "Не вдалося отримати дані з CRM.",
     lookupSuccess: "Дані з CRM підставлені у форму. Перевірте суму боргу та дату прострочення.",
     lookupConnectFailed: "Не вдалося зв'язатися з CRM.",
+    firstMissedPaymentRequired: "Заповніть дату першого невиконаного платежу.",
     saveRecordFailed: "Не вдалося зберегти запис. Перевірте заповнення полів.",
     updateRecordFailed: "Не вдалося оновити запис.",
     saveChangeFailed: "Не вдалося зберегти зміну.",
@@ -370,6 +382,9 @@ const UI_STRINGS = {
     deleteWarning: "Zapis zostanie usunięty bez możliwości przywrócenia. Jeśli ma zagnieżdżony wiersz zwrotu pozwu, on też zostanie usunięty.",
     newCourt: "Nowy sąd",
     addCourt: "Dodaj sąd",
+    chooseCourtAnotherRegion: "Wybierz sąd w innym regionie",
+    searchCourt: "Szukaj sądu",
+    noCourtsForCity: "Nie znaleziono sądów dla tego miasta. Wybierz sąd ręcznie.",
     claimDataConfirm: "Potwierdzenie danych",
     generateClaim: "Generowanie roszczenia",
     generateLawsuit: "Generowanie pozwu",
@@ -379,6 +394,7 @@ const UI_STRINGS = {
     lookupFailed: "Nie udało się pobrać danych z CRM.",
     lookupSuccess: "Dane z CRM zostały wstawione do formularza. Sprawdź kwotę długu i datę opóźnienia.",
     lookupConnectFailed: "Nie udało się połączyć z CRM.",
+    firstMissedPaymentRequired: "Uzupełnij datę pierwszej niespłaconej raty.",
     saveRecordFailed: "Nie udało się zapisać rekordu. Sprawdź pola.",
     updateRecordFailed: "Nie udało się zaktualizować rekordu.",
     saveChangeFailed: "Nie udało się zapisać zmiany.",
@@ -446,6 +462,9 @@ const UI_STRINGS = {
     deleteWarning: "Жазба қалпына келтіру мүмкіндігінсіз жойылады. Егер талапты қайтару ішкі жолы болса, ол да жойылады.",
     newCourt: "Жаңа сот",
     addCourt: "Сот қосу",
+    chooseCourtAnotherRegion: "Басқа өңірден сот таңдау",
+    searchCourt: "Сотты іздеу",
+    noCourtsForCity: "Бұл қала бойынша сот табылмады. Сотты қолмен таңдаңыз.",
     claimDataConfirm: "Деректерді растау",
     generateClaim: "Наразылықты генерациялау",
     generateLawsuit: "Талапты генерациялау",
@@ -455,6 +474,7 @@ const UI_STRINGS = {
     lookupFailed: "CRM-нен деректерді алу мүмкін болмады.",
     lookupSuccess: "CRM деректері формаға қойылды. Қарыз сомасы мен кешігу күнін тексеріңіз.",
     lookupConnectFailed: "CRM-мен байланысу мүмкін болмады.",
+    firstMissedPaymentRequired: "Бірінші орындалмаған төлем күнін толтырыңыз.",
     saveRecordFailed: "Жазбаны сақтау мүмкін болмады. Өрістерді тексеріңіз.",
     updateRecordFailed: "Жазбаны жаңарту мүмкін болмады.",
     saveChangeFailed: "Өзгерісті сақтау мүмкін болмады.",
@@ -652,6 +672,10 @@ const submitButton = document.getElementById("debtor-submit-button");
 const companySelect = document.getElementById("company-select");
 const citySelect = document.getElementById("city-select");
 const courtSelect = document.getElementById("court-select");
+const toggleManualCourtPickerButton = document.getElementById("toggle-manual-court-picker");
+const manualCourtPickerPanel = document.getElementById("manual-court-picker-panel");
+const manualCourtSearchInput = document.getElementById("manual-court-search");
+const manualCourtSelect = document.getElementById("manual-court-select");
 const crmLookupStatus = document.getElementById("crm-lookup-status");
 const courtModalCitySelect = document.getElementById("court-city-select");
 const courtModalRegionSelect = document.getElementById("court-region-select");
@@ -794,7 +818,7 @@ const FILTER_LABELS = {
   category: "Категория",
   client_name: "ФИО клиента",
   contract_number: "№ договора",
-  last_missed_payment_date: "Дата последнего неисполненного платежа",
+  last_missed_payment_date: "Дата первого неисполненного платежа",
   company: "Компания",
   city: "Город",
   court: "Суд",
@@ -1128,7 +1152,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     openForcePasswordModal();
     return;
   }
-  await initAppData();
+  try {
+    await initAppData();
+  } catch (error) {
+    console.error(error);
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="32">Не удалось загрузить данные.</td></tr>`;
+  }
 });
 
 function bindEvents() {
@@ -1208,6 +1237,23 @@ function bindEvents() {
   });
 
   courtSelect.addEventListener("change", handleModalCourtChange);
+  toggleManualCourtPickerButton?.addEventListener("click", () => {
+    const shouldOpen = manualCourtPickerPanel?.classList.contains("hidden");
+    renderManualCourtOptions({
+      query: manualCourtSearchInput?.value ?? "",
+      selectedCourt: courtSelect.value,
+      open: shouldOpen,
+    });
+  });
+  manualCourtSearchInput?.addEventListener("input", () => {
+    renderManualCourtOptions({
+      query: manualCourtSearchInput.value,
+      selectedCourt: courtSelect.value,
+      open: true,
+    });
+  });
+  manualCourtSelect?.addEventListener("change", applyManualCourtSelection);
+  manualCourtSelect?.addEventListener("dblclick", applyManualCourtSelection);
   courtModalRegionSelect.addEventListener("change", handleCourtModalRegionChange);
   courtModalCitySelect.addEventListener("change", handleCourtModalCityChange);
 
@@ -1322,6 +1368,12 @@ function applyStaticTranslations() {
   setModalLabel(debtorForm, "last_missed_payment_date", headerTexts[6]);
   setModalLabel(debtorForm, "debt_amount", headerTexts[14]);
   lookupContractButton.textContent = "CRM";
+  if (toggleManualCourtPickerButton) {
+    toggleManualCourtPickerButton.textContent = t("chooseCourtAnotherRegion");
+  }
+  if (manualCourtSearchInput) {
+    manualCourtSearchInput.placeholder = t("searchCourt");
+  }
 
   document.querySelector("#delete-modal-backdrop .modal-header .eyebrow").textContent = t("confirm");
   document.getElementById("delete-modal-title").textContent = t("confirmDeleteTitle");
@@ -1437,6 +1489,18 @@ function clearCrmLookupStatus() {
   crmLookupStatus.classList.remove("is-error", "is-success", "is-loading");
 }
 
+function resetManualCourtPicker() {
+  if (manualCourtSearchInput) {
+    manualCourtSearchInput.value = "";
+  }
+  if (manualCourtPickerPanel) {
+    manualCourtPickerPanel.classList.add("hidden");
+  }
+  if (courtSelect) {
+    courtSelect.dataset.manualOverride = "false";
+  }
+}
+
 function clearCrmPrefillFields() {
   debtorForm.client_name.value = "";
   debtorForm.company.value = "";
@@ -1447,6 +1511,7 @@ function clearCrmPrefillFields() {
   debtorForm.contract_total_amount.value = "";
   debtorForm.contract_advance_amount.value = "";
   if (!debtorForm.court.value) {
+    resetManualCourtPicker();
     renderModalCourts("", null);
   }
 }
@@ -1514,6 +1579,13 @@ async function handleContractLookup() {
 async function handleModalSubmit(event) {
   event.preventDefault();
 
+  const lastMissedPaymentDate = getDateInputIsoValue(debtorForm.last_missed_payment_date);
+  if (!lastMissedPaymentDate) {
+    alert(t("firstMissedPaymentRequired"));
+    debtorForm.last_missed_payment_date.focus();
+    return;
+  }
+
   const payload = {
     country: state.currentCountry,
     client_name: debtorForm.client_name.value.trim(),
@@ -1521,7 +1593,8 @@ async function handleModalSubmit(event) {
     company: debtorForm.company.value.trim(),
     city: debtorForm.city.value.trim(),
     court: debtorForm.court.value,
-    last_missed_payment_date: getDateInputIsoValue(debtorForm.last_missed_payment_date),
+    preserve_city_with_manual_court: courtSelect.dataset.manualOverride === "true",
+    last_missed_payment_date: lastMissedPaymentDate,
     debt_amount: Number(debtorForm.debt_amount.value),
     mobile_phone: debtorForm.mobile_phone.value.trim() || null,
     home_phone: debtorForm.home_phone.value.trim() || null,
@@ -1580,7 +1653,13 @@ async function loadReferenceData() {
       return;
     }
   }
+  if (!response.ok) {
+    throw new Error(`REFERENCE_DATA_HTTP_${response.status}`);
+  }
   state.referenceData = await response.json();
+  if (!state.referenceData || !Array.isArray(state.referenceData.categories) || !Array.isArray(state.referenceData.decisions)) {
+    throw new Error("REFERENCE_DATA_INVALID_PAYLOAD");
+  }
 
   populateModalCities(debtorForm.city?.value || null, debtorForm.court?.value || null);
   renderModalCourts(citySelect.value, debtorForm.court?.value || null);
@@ -1604,7 +1683,13 @@ async function loadDebtors() {
       return;
     }
   }
+  if (!response.ok) {
+    throw new Error(`DEBTORS_HTTP_${response.status}`);
+  }
   state.debtors = await response.json();
+  if (!Array.isArray(state.debtors)) {
+    throw new Error("DEBTORS_INVALID_PAYLOAD");
+  }
   renderDebtors();
 }
 
@@ -1858,7 +1943,10 @@ function ensureFilterSupportMarkup() {
 }
 
 function collectCourtOptions() {
-  const allCourts = Object.values(state.referenceData?.courtsByCity ?? {}).flat();
+  const allCourts = [
+    ...Object.values(state.referenceData?.courtsByCity ?? {}).flat(),
+    ...Object.values(state.referenceData?.courtsByRegion ?? {}).flat(),
+  ];
   return [...new Set(allCourts)].sort((left, right) => left.localeCompare(right, "ru"));
 }
 
@@ -1906,18 +1994,77 @@ function uniqueValues(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
+function getCourtsForCity(city) {
+  return sortStrings(uniqueValues(state.referenceData?.courtsByCity?.[city] ?? []));
+}
+
 function populateModalCities(selectedCity = null, selectedCourt = null) {
   const mappedCity = selectedCourt ? state.referenceData?.courtCityMap?.[selectedCourt] : null;
   citySelect.value = selectedCity ?? mappedCity ?? "";
 }
 
 function renderModalCourts(city, selectedCourt = null) {
-  const cityCourts = state.referenceData?.courtsByCity?.[city] ?? [];
+  const cityCourts = getCourtsForCity(city);
   const courts = sortStrings(uniqueValues([...cityCourts, selectedCourt]));
   populateSelect(courtSelect, courts, {
     includeBlank: true,
     selectedValue: selectedCourt ?? "",
   });
+  const selectedCourtMappedCity = selectedCourt ? state.referenceData?.courtCityMap?.[selectedCourt] : null;
+  const isManualOverride = Boolean(selectedCourt && selectedCourtMappedCity && selectedCourtMappedCity !== city);
+  courtSelect.dataset.manualOverride = isManualOverride ? "true" : "false";
+  renderManualCourtOptions({
+    query: manualCourtSearchInput?.value ?? "",
+    selectedCourt,
+    open: city && cityCourts.length === 0,
+    message: city && cityCourts.length === 0 ? t("noCourtsForCity") : "",
+  });
+}
+
+function renderManualCourtOptions({ query = "", selectedCourt = "", open = false, message = "" } = {}) {
+  if (!manualCourtSelect || !manualCourtPickerPanel || !toggleManualCourtPickerButton) {
+    return;
+  }
+
+  const normalizedQuery = String(query || "").trim().toLocaleLowerCase();
+  const courts = collectCourtOptions().filter((court) =>
+    !normalizedQuery ? true : court.toLocaleLowerCase().includes(normalizedQuery),
+  );
+
+  manualCourtSelect.innerHTML = "";
+  courts.forEach((court) => {
+    const option = document.createElement("option");
+    option.value = court;
+    option.textContent = court;
+    if (selectedCourt && court === selectedCourt) {
+      option.selected = true;
+    }
+    manualCourtSelect.appendChild(option);
+  });
+
+  if (courts.length === 0) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "—";
+    manualCourtSelect.appendChild(option);
+  }
+
+  manualCourtPickerPanel.classList.toggle("hidden", !open);
+  toggleManualCourtPickerButton.textContent = message || t("chooseCourtAnotherRegion");
+  if (manualCourtSearchInput) {
+    manualCourtSearchInput.placeholder = t("searchCourt");
+  }
+}
+
+function applyManualCourtSelection() {
+  const selectedCourt = manualCourtSelect?.value?.trim() || "";
+  if (!selectedCourt) {
+    return;
+  }
+  const currentCity = citySelect.value || "";
+  renderModalCourts(currentCity, selectedCourt);
+  courtSelect.value = selectedCourt;
+  courtSelect.dataset.manualOverride = "true";
 }
 
 function populateCourtModalRegions(selectedRegion = null) {
@@ -1939,6 +2086,15 @@ function populateCourtModalCities(region, selectedCity = null) {
 
 function handleModalCourtChange() {
   const selectedCourt = courtSelect.value;
+  const manualOverride = courtSelect.dataset.manualOverride === "true";
+  if (manualOverride) {
+    renderManualCourtOptions({
+      query: manualCourtSearchInput?.value ?? "",
+      selectedCourt,
+      open: true,
+    });
+    return;
+  }
   const mappedCity = state.referenceData?.courtCityMap?.[selectedCourt];
   if (!mappedCity) {
     return;
@@ -2643,8 +2799,9 @@ function renderLawsuitAndDecisionCells(debtor, { isChild = false } = {}) {
 }
 
 function renderCaseCells(debtor) {
+  const receivedAmountDisabled = !(Number(debtor.decision_payout || 0) > 0);
   return `
-    <td>${renderNumberInput(debtor, "received_amount", debtor.received_amount)}</td>
+    <td>${renderNumberInput(debtor, "received_amount", debtor.received_amount, receivedAmountDisabled)}</td>
     <td class="cell-comment">${renderTextarea(debtor, "comment")}</td>
     <td>${renderTextInput(debtor, "case_number")}</td>
   `;
@@ -2898,6 +3055,7 @@ function openCreateModal() {
   debtorForm.contract_total_amount.value = "";
   debtorForm.contract_advance_amount.value = "";
   clearCrmLookupStatus();
+  resetManualCourtPicker();
   populateModalCities();
   renderModalCourts("", null);
 
@@ -2934,6 +3092,7 @@ function openEditModal(debtorId) {
   debtorForm.last_missed_payment_date.value = formatDisplayDate(debtor.last_missed_payment_date_iso) ?? "";
   debtorForm.debt_amount.value = Number(debtor.debt_amount);
   clearCrmLookupStatus();
+  resetManualCourtPicker();
   populateModalCities(debtor.city, debtor.court);
   renderModalCourts(debtor.city, debtor.court);
 
@@ -2948,6 +3107,7 @@ function openDeleteModal(debtorId) {
 }
 
 function closeModal() {
+  resetManualCourtPicker();
   modalBackdrop.classList.add("hidden");
 }
 
@@ -3283,7 +3443,10 @@ function openLawsuitModal(debtorId) {
     Number(debtor.debt_amount || 0),
     Number(lawsuitConfirmForm.penalty_amount.value || 0),
   );
-  setDateInputValue(lawsuitConfirmForm.installment_from, debtor.lawsuit_installment_from || "");
+  setDateInputValue(
+    lawsuitConfirmForm.installment_from,
+    debtor.lawsuit_installment_from || debtor.last_missed_payment_date_iso || "",
+  );
   setDateInputValue(lawsuitConfirmForm.installment_to, debtor.lawsuit_installment_to || "");
   lawsuitConfirmForm.first_period_paid_amount.value = Number(debtor.lawsuit_first_period_paid_amount || 0);
   setDocumentProducts(lawsuitProductsList, [{ name: "Товар по договору", quantity: 1 }]);
@@ -3366,29 +3529,26 @@ function validateLawsuitForm() {
       : Number(lawsuitConfirmForm.penalty_amount.value || 0);
   const monthlyPaymentAmount = Number(lawsuitConfirmForm.monthly_payment_amount.value || 0);
   const firstPeriodPaidAmount = Number(lawsuitConfirmForm.first_period_paid_amount.value || 0);
-  const debtor = state.debtors.find((item) => item.id === state.lawsuitTargetId);
-  const fallbackInstallmentFrom = debtor?.contract_date_iso || new Date().toISOString().slice(0, 10);
-  const fallbackInstallmentTo = debtor?.claim_sent_date_iso || fallbackInstallmentFrom;
 
   if (!courtName) {
     missingFields.push(t("fieldCourtName"));
   }
-  if (state.currentCountry !== "uz" && !installmentFrom) {
+  if (!installmentFrom) {
     missingFields.push(t("fieldInstallmentFrom"));
   }
-  if (state.currentCountry !== "uz" && !installmentTo) {
+  if (!installmentTo) {
     missingFields.push(t("fieldInstallmentTo"));
   }
   if (!(debtAmount >= 0)) {
     missingFields.push(t("fieldDebtAmount"));
   }
-  if (state.currentCountry !== "uz" && !(monthlyPaymentAmount > 0)) {
+  if (!(monthlyPaymentAmount > 0)) {
     missingFields.push(t("fieldMonthlyPayment"));
   }
-  if (state.currentCountry !== "uz" && !(firstPeriodPaidAmount >= 0)) {
+  if (!(firstPeriodPaidAmount >= 0)) {
     missingFields.push(t("fieldFirstPeriodPaid"));
   }
-  if (state.currentCountry !== "uz" && installmentFrom && installmentTo && installmentTo <= installmentFrom) {
+  if (installmentFrom && installmentTo && installmentTo <= installmentFrom) {
     alert(t("installmentEndAfterStart"));
     return null;
   }
@@ -3402,10 +3562,10 @@ function validateLawsuitForm() {
     debt_amount: debtAmount,
     penalty_amount: penaltyAmount,
     state_duty_amount: Number(lawsuitConfirmForm.state_duty_amount.value || 0),
-    installment_from: state.currentCountry === "uz" ? fallbackInstallmentFrom : installmentFrom,
-    installment_to: state.currentCountry === "uz" ? fallbackInstallmentTo : installmentTo,
-    monthly_payment_amount: state.currentCountry === "uz" ? 1 : monthlyPaymentAmount,
-    first_period_paid_amount: state.currentCountry === "uz" ? 0 : firstPeriodPaidAmount,
+    installment_from: installmentFrom,
+    installment_to: installmentTo,
+    monthly_payment_amount: monthlyPaymentAmount,
+    first_period_paid_amount: firstPeriodPaidAmount,
     product_overrides: readDocumentProducts(lawsuitProductsList),
   };
 }
