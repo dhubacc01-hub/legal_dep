@@ -1,0 +1,20 @@
+[Unit]
+Description=Backup Legal Department data to Google Drive
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+Environment=APP_DIR=/opt/legal-dep
+Environment=DATA_DIR=/opt/legal-dep/data
+Environment=DB_PATH=/opt/legal-dep/data/legal_dep_fixed.db
+Environment=GENERATED_DIR=/opt/legal-dep/data/generated
+Environment=BACKUP_DIR=/opt/legal-dep/backups
+Environment=REMOTE_NAME=gdrive
+Environment=REMOTE_DIR=legal-dep-backups
+Environment=KEEP_LOCAL_DAYS=7
+Environment=KEEP_REMOTE_DAYS=90
+Environment=INCLUDE_GENERATED=0
+ExecStart=/opt/legal-dep/deploy/backup_legal_dep.sh
