@@ -207,3 +207,72 @@ class UserView(BaseModel):
 
 class AuthMeResponse(BaseModel):
     user: UserView
+
+
+class IncomingCorrespondenceBase(BaseModel):
+    category: str = Field(min_length=1, max_length=255)
+    received_date: date
+    receive_method: str = Field(min_length=1, max_length=255)
+    company: str = Field(min_length=1, max_length=255)
+    client_name: str = Field(min_length=1, max_length=255)
+    authority_kind: str = Field(min_length=1, max_length=32)
+    court: str | None = Field(default=None, max_length=255)
+    other_authority: str | None = Field(default=None, max_length=255)
+    contract_number: str | None = Field(default=None, max_length=255)
+    responsible_person: str | None = Field(default=None, max_length=255)
+    response_text: str | None = None
+    response_date: date | None = None
+    sent_date: date | None = None
+    comment: str | None = None
+
+
+class IncomingCorrespondenceCreate(IncomingCorrespondenceBase):
+    country: str = Field(default="kz", min_length=2, max_length=8)
+
+
+class IncomingCorrespondenceUpdate(BaseModel):
+    country: str | None = None
+    category: str | None = Field(default=None, max_length=255)
+    received_date: date | None = None
+    receive_method: str | None = Field(default=None, max_length=255)
+    company: str | None = Field(default=None, max_length=255)
+    client_name: str | None = Field(default=None, max_length=255)
+    authority_kind: str | None = Field(default=None, max_length=32)
+    court: str | None = Field(default=None, max_length=255)
+    other_authority: str | None = Field(default=None, max_length=255)
+    contract_number: str | None = Field(default=None, max_length=255)
+    responsible_person: str | None = Field(default=None, max_length=255)
+    response_text: str | None = None
+    response_date: date | None = None
+    sent_date: date | None = None
+    comment: str | None = None
+
+
+class IncomingClaimResponsePdfRequest(BaseModel):
+    outgoing_number: str = Field(default="", max_length=255)
+    body_text: str = Field(min_length=1)
+
+
+class IncomingCorrespondenceView(BaseModel):
+    id: int
+    country: str
+    category: str
+    received_date: str
+    received_date_iso: str
+    receive_method: str
+    company: str
+    client_name: str
+    authority_kind: str
+    authority_display: str
+    court: str | None
+    other_authority: str | None
+    contract_number: str | None
+    responsible_person: str | None
+    response_text: str | None
+    response_date: str | None
+    response_date_iso: str | None
+    sent_date: str | None
+    sent_date_iso: str | None
+    comment: str | None
+    created_at: str
+    updated_at: str

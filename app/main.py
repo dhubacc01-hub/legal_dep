@@ -105,15 +105,18 @@ from app.reference_data import (
     get_companies_by_country,
 )
 from app.schemas import (
-    ClaimPdfGenerateRequest,
-    CrmDebtorLookupResponse,
-    CourtCreate,
-    DebtorCreate,
-    DebtorUpdate,
     AuthMeResponse,
     ChangePasswordRequest,
+    ClaimPdfGenerateRequest,
+    CourtCreate,
+    CrmDebtorLookupResponse,
+    DebtorCreate,
+    DebtorUpdate,
     ImportApplyRequest,
     ImportPreviewRequest,
+    IncomingClaimResponsePdfRequest,
+    IncomingCorrespondenceCreate,
+    IncomingCorrespondenceUpdate,
     LawsuitPdfGenerateRequest,
     LoginRequest,
     UserCreateRequest,
@@ -157,6 +160,28 @@ DECISION_PARTIAL = "Частично"
 DECISION_SETTLEMENT = "По соглашению сторон"
 DECISION_REFUSAL = "Отказ в иске"
 DECISION_RETURN = "Возврат иска"
+
+INCOMING_CORRESPONDENCE_CATEGORIES = [
+    "Претензия",
+    "Иск",
+    "Исполнительный лист",
+    "Ответ на претензию",
+    "Постановление по делу об административном правонарушении",
+    "Решение суда",
+    "Постановление ОСП",
+    "Судебный запрос",
+    "Апелляционная жалоба",
+    "Кассационная жалоба",
+    "Прочее",
+    "Возражения от клиента",
+    "Судебная повестка",
+    "Возвратная корреспонденция",
+    "Арбитражный суд",
+    "Медиация",
+]
+INCOMING_CATEGORY_CLAIM = "Претензия"
+INCOMING_AUTHORITY_COURT = "court"
+INCOMING_AUTHORITY_OTHER = "other"
 
 PRIORITY_CATEGORY_OVERRIDES = {
     "Закрытая компания",
@@ -1594,6 +1619,342 @@ def serialize_debtor(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def serialize_incoming_correspondence(row: dict[str, Any]) -> dict[str, Any]:
+    received_date = parse_date_value(row.get("received_date"))
+    response_date = parse_date_value(row.get("response_date"))
+    sent_date = parse_date_value(row.get("sent_date"))
+    authority_kind = str(row.get("authority_kind") or INCOMING_AUTHORITY_COURT).strip() or INCOMING_AUTHORITY_COURT
+    court = str(row.get("court") or "").strip() or None
+    other_authority = str(row.get("other_authority") or "").strip() or None
+    authority_display = court if authority_kind == INCOMING_AUTHORITY_COURT else other_authority
+
+    return {
+        "id": row["id"],
+        "country": normalize_country_code(str(row.get("country") or DEFAULT_COUNTRY)),
+        "category": str(row.get("category") or "").strip(),
+        "received_date": format_date(received_date) if received_date else None,
+        "received_date_iso": received_date.isoformat() if received_date else None,
+        "receive_method": str(row.get("receive_method") or "").strip(),
+        "company": str(row.get("company") or "").strip(),
+        "client_name": str(row.get("client_name") or "").strip(),
+        "authority_kind": authority_kind,
+        "authority_display": authority_display or "",
+        "court": court,
+        "other_authority": other_authority,
+        "contract_number": str(row.get("contract_number") or "").strip() or None,
+        "responsible_person": str(row.get("responsible_person") or "").strip() or None,
+        "response_text": str(row.get("response_text") or "").strip() or None,
+        "response_date": format_date(response_date) if response_date else None,
+        "response_date_iso": response_date.isoformat() if response_date else None,
+        "sent_date": format_date(sent_date) if sent_date else None,
+        "sent_date_iso": sent_date.isoformat() if sent_date else None,
+        "comment": str(row.get("comment") or "").strip() or None,
+        "created_at": str(row.get("created_at") or ""),
+        "updated_at": str(row.get("updated_at") or ""),
+    }
+
+
+def validate_incoming_correspondence_payload(payload: dict[str, Any]) -> None:
+    category = str(payload.get("category") or "").strip()
+    authority_kind = str(payload.get("authority_kind") or INCOMING_AUTHORITY_COURT).strip() or INCOMING_AUTHORITY_COURT
+    receive_method = str(payload.get("receive_method") or "").strip()
+    company = str(payload.get("company") or "").strip()
+    client_name = str(payload.get("client_name") or "").strip()
+    contract_number = str(payload.get("contract_number") or "").strip()
+
+    if category not in INCOMING_CORRESPONDENCE_CATEGORIES:
+        raise HTTPException(status_code=400, detail="Некорректная категория входящей корреспонденции.")
+    if authority_kind not in {INCOMING_AUTHORITY_COURT, INCOMING_AUTHORITY_OTHER}:
+        raise HTTPException(status_code=400, detail="Некорректный тип органа.")
+    if not receive_method:
+        raise HTTPException(status_code=400, detail="Укажите способ получения.")
+    if not company:
+        raise HTTPException(status_code=400, detail="Укажите компанию.")
+    if not client_name:
+        raise HTTPException(status_code=400, detail="Укажите ФИО клиента.")
+    if category == INCOMING_CATEGORY_CLAIM and not contract_number:
+        raise HTTPException(status_code=400, detail="Для претензии требуется номер договора.")
+
+    if authority_kind == INCOMING_AUTHORITY_COURT:
+        if not str(payload.get("court") or "").strip():
+            raise HTTPException(status_code=400, detail="Укажите суд.")
+    elif not str(payload.get("other_authority") or "").strip():
+        raise HTTPException(status_code=400, detail="Укажите другой орган.")
+
+
+def build_incoming_claim_response_output_path(record_id: int) -> Path:
+    GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return GENERATED_DIR / f"incoming_claim_response_{record_id}_{timestamp}.pdf"
+
+
+def build_incoming_claim_response_lines(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    font: ImageFont.ImageFont,
+    width: int,
+) -> list[dict[str, int | str]]:
+    normalized_text = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+    paragraph_indent = 89
+    lines: list[dict[str, int | str]] = []
+    for raw_line in normalized_text.split("\n"):
+        if not raw_line.strip():
+            lines.append({"text": "", "indent": 0})
+            continue
+        words = raw_line.strip().split()
+        if not words:
+            lines.append({"text": "", "indent": 0})
+            continue
+
+        first_line_words: list[str] = []
+        remaining_words = list(words)
+        while remaining_words:
+            candidate_words = first_line_words + [remaining_words[0]]
+            candidate = " ".join(candidate_words).strip()
+            if draw.textlength(candidate, font=font) <= max(40, width - paragraph_indent):
+                first_line_words.append(remaining_words.pop(0))
+            else:
+                break
+
+        if first_line_words:
+            lines.append({"text": " ".join(first_line_words), "indent": paragraph_indent})
+
+        if remaining_words:
+            for wrapped_line in wrap_text(draw, " ".join(remaining_words), font, width):
+                lines.append({"text": wrapped_line, "indent": 0})
+    return lines
+
+
+def render_incoming_claim_response_pdf(
+    record: dict[str, Any],
+    payload: IncomingClaimResponsePdfRequest,
+) -> Path:
+    raw_company_name = str(record.get("company") or "").strip()
+    country = normalize_country_code(str(record.get("country") or DEFAULT_COUNTRY))
+    company_name = match_company_to_library(raw_company_name, country)
+    requisites = find_company_requisites(company_name, country=country)
+    if not requisites:
+        requisites = find_company_requisites(raw_company_name, country=country) or find_company_requisites(company_name)
+    if not requisites:
+        raise HTTPException(status_code=400, detail="Для компании не найдены реквизиты.")
+
+    contract_number = str(record.get("contract_number") or "").strip()
+    if not contract_number:
+        raise HTTPException(status_code=400, detail="У записи не заполнен номер договора.")
+
+    try:
+        crm_context = DiSellApiClient().lookup_lawsuit_context(contract_number, country=country)
+    except DiSellApiError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+    client_name = normalize_text(crm_context.get("client_name")) or str(record.get("client_name") or "").strip()
+    client_birth_date = format_date(parse_date_value(crm_context.get("client_birth_date")))
+    client_inn = normalize_text(crm_context.get("client_inn"))
+    client_address = normalize_text(crm_context.get("client_address"))
+    client_phones = ", ".join(
+        phone.strip()
+        for phone in crm_context.get("client_phones") or []
+        if str(phone).strip()
+    )
+
+    page_width = 1240
+    page_height = 1754
+    margin_left = 110
+    margin_right = 110
+    margin_top = 90
+    margin_bottom = 90
+    content_width = page_width - margin_left - margin_right
+    right_block_width = 470
+
+    body_font = load_font(22)
+    body_bold_font = load_font(22, bold=True)
+    title_font = load_font(22, bold=True)
+    small_font = load_font(22)
+
+    scratch_draw = ImageDraw.Draw(Image.new("RGB", (32, 32), "white"))
+    line_bbox = scratch_draw.textbbox((0, 0), "Аг", font=body_font)
+    body_line_spacing = 0
+    body_font_size = int(getattr(body_font, "size", 22) or 22)
+    small_font_size = int(getattr(small_font, "size", 22) or 22)
+    body_line_height = max((line_bbox[3] - line_bbox[1]) + body_line_spacing, int(body_font_size * 1.25))
+    small_line_bbox = scratch_draw.textbbox((0, 0), "Аг", font=small_font)
+    header_line_spacing = 4
+    header_line_height = max((small_line_bbox[3] - small_line_bbox[1]) + header_line_spacing, int(small_font_size * 1.25))
+    signature_line_height = header_line_height
+    paragraph_indent = 0
+    paragraph_spacing = max(int(body_line_height * 0.5), 14)
+
+    company_header_lines = [
+        f"От: {requisites.get('company_name') or company_name}",
+        str(requisites.get("bin") or "").strip(),
+        f"Директор: {str(requisites.get('director_name') or '').strip()}",
+        f"Юридический адрес: {str(requisites.get('address') or '').strip()}",
+    ]
+    company_header_lines = [line for line in company_header_lines if line.strip()]
+
+    recipient_lines = [f"Кому: {client_name}"]
+    if client_birth_date:
+        recipient_lines.append(f"Дата рождения: {client_birth_date}")
+    if client_inn:
+        recipient_lines.append(f"ИНН: {client_inn}")
+    if client_address:
+        recipient_lines.append(f"Адрес: {client_address}")
+    if client_phones:
+        recipient_lines.append(f"Контактный телефон: {client_phones}")
+
+    outgoing_number = str(payload.outgoing_number or "").strip()
+    body_text = str(payload.body_text or "").strip()
+    body_paragraphs = [
+        paragraph.strip()
+        for paragraph in body_text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+        if paragraph.strip()
+    ]
+    signature_lines = [
+        "С уважением,",
+        "Директор",
+        str(requisites.get("director_name") or "").strip(),
+        str(requisites.get("company_name") or company_name).strip(),
+    ]
+    signature_height = len(signature_lines) * signature_line_height + 24
+
+    pages: list[Image.Image] = []
+
+    def draw_line_group(
+        draw: ImageDraw.ImageDraw,
+        source_lines: list[str],
+        *,
+        x: int,
+        y: int,
+        width: int,
+        font: ImageFont.ImageFont,
+        line_height: int,
+    ) -> int:
+        for source_line in source_lines:
+            if not source_line.strip():
+                y += line_height
+                continue
+            wrapped_lines = wrap_text(draw, source_line, font, width)
+            for wrapped_line in wrapped_lines:
+                draw.text((x, y), wrapped_line, fill="#111111", font=font)
+                y += line_height
+        return y
+
+    def estimate_block_height(text: str, *, width: int, first_line_indent: int = 0) -> int:
+        normalized = " ".join((text or "").split())
+        if not normalized:
+            return 0
+
+        if first_line_indent > 0:
+            words = normalized.split(" ")
+            first_line_words: list[str] = []
+            while words:
+                candidate_words = first_line_words + [words[0]]
+                candidate = " ".join(candidate_words).strip()
+                if scratch_draw.textlength(candidate, font=body_font) <= max(40, width - first_line_indent):
+                    first_line_words.append(words.pop(0))
+                else:
+                    break
+            remaining = " ".join(words).strip()
+            lines_count = 1 + (len(wrap_text(scratch_draw, remaining, body_font, width)) if remaining else 0)
+        else:
+            lines_count = len(wrap_text(scratch_draw, normalized, body_font, width))
+
+        return lines_count * body_line_height
+
+    def create_page(first_page: bool) -> tuple[Image.Image, ImageDraw.ImageDraw, int]:
+        image = Image.new("RGB", (page_width, page_height), "#FFFFFF")
+        draw = ImageDraw.Draw(image)
+        current_y = margin_top
+
+        if first_page:
+            right_x = page_width - margin_right - right_block_width
+            current_y = draw_line_group(
+                draw,
+                company_header_lines,
+                x=right_x,
+                y=current_y,
+                width=right_block_width,
+                font=small_font,
+                line_height=header_line_height,
+            )
+            current_y += 12
+            current_y = draw_line_group(
+                draw,
+                recipient_lines,
+                x=right_x,
+                y=current_y,
+                width=right_block_width,
+                font=small_font,
+                line_height=header_line_height,
+            )
+
+            if outgoing_number:
+                current_y = draw_text_block(
+                    draw,
+                    f"Исх. {outgoing_number}",
+                    x=margin_left,
+                    y=current_y + 8,
+                    width=content_width,
+                    font=body_font,
+                    line_spacing=body_line_spacing,
+                    paragraph_spacing=12,
+                )
+
+            current_y = draw_text_block(
+                draw,
+                "Ответ на претензию",
+                x=margin_left,
+                y=current_y + 8,
+                width=content_width,
+                font=title_font,
+                line_spacing=body_line_spacing,
+                align="center",
+                paragraph_spacing=20,
+            )
+        return image, draw, current_y
+
+    image, draw, current_y = create_page(True)
+    for paragraph in body_paragraphs:
+        estimated_height = estimate_block_height(
+            paragraph,
+            width=content_width,
+            first_line_indent=paragraph_indent,
+        ) + paragraph_spacing
+        if current_y + estimated_height > page_height - margin_bottom - signature_height:
+            pages.append(image)
+            image, draw, current_y = create_page(False)
+
+        current_y = draw_text_block(
+            draw,
+            paragraph,
+            x=margin_left,
+            y=current_y,
+            width=content_width,
+            font=body_font,
+            line_spacing=body_line_spacing,
+            align="left",
+            paragraph_spacing=paragraph_spacing,
+            first_line_indent=paragraph_indent,
+        )
+
+    if current_y + signature_height > page_height - margin_bottom:
+        pages.append(image)
+        image, draw, current_y = create_page(False)
+
+    current_y += 18
+    for index, line in enumerate(signature_lines):
+        font = body_bold_font if index == 0 else body_font
+        draw.text((margin_left, current_y), line, fill="#111111", font=font)
+        current_y += signature_line_height
+
+    pages.append(image)
+
+    output_path = build_incoming_claim_response_output_path(int(record["id"]))
+    first_page, *other_pages = pages
+    first_page.save(output_path, "PDF", resolution=300.0, save_all=True, append_images=other_pages)
+    return output_path
+
+
 def resolve_category_state(row: dict[str, Any]) -> dict[str, Any]:
     stored_category = normalize_text(row.get("category")) or DEFAULT_CATEGORY
     auto_category = determine_auto_category(row)
@@ -1769,12 +2130,29 @@ def index(request: Request) -> HTMLResponse:
         {
             "request": request,
             "page_title": "Legal Department",
-            "app_context_json": json.dumps({"user": serialize_user(user)}, ensure_ascii=False),
+            "app_context_json": json.dumps({"user": serialize_user(user), "page": "debtors"}, ensure_ascii=False),
         },
     )
     return templates.TemplateResponse(
         "index.html",
         {"request": request, "page_title": "Юридический департамент"},
+    )
+
+@app.get("/incoming-correspondence", response_class=HTMLResponse)
+def incoming_correspondence_page(request: Request) -> HTMLResponse:
+    user = get_optional_current_user(request)
+    if user is None:
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "page_title": "Legal Department Login"},
+        )
+    return templates.TemplateResponse(
+        "incoming_correspondence.html",
+        {
+            "request": request,
+            "page_title": "Входящая корреспонденция",
+            "app_context_json": json.dumps({"user": serialize_user(user), "page": "incoming"}, ensure_ascii=False),
+        },
     )
 
 
@@ -1932,6 +2310,27 @@ def reference_data(country: str = DEFAULT_COUNTRY, _user: dict[str, Any] = Depen
         "citiesByRegion": catalog["citiesByRegion"],
         "decisions": DECISIONS,
         "priorityCategoryOverrides": sorted(PRIORITY_CATEGORY_OVERRIDES),
+        "currentCountry": normalized_country,
+        "countries": [
+            {"code": code, "label": COUNTRY_LABELS[code]["ru"]}
+            for code in SUPPORTED_COUNTRIES
+        ],
+    }
+
+
+@app.get("/api/incoming-correspondence/reference-data")
+def incoming_correspondence_reference_data(
+    country: str = DEFAULT_COUNTRY,
+    _user: dict[str, Any] = Depends(require_app_user),
+) -> dict[str, Any]:
+    normalized_country = normalize_country_code(country)
+    with get_connection() as connection:
+        catalog = build_reference_catalog(connection, normalized_country)
+
+    return {
+        "categories": INCOMING_CORRESPONDENCE_CATEGORIES,
+        "companies": get_companies_by_country(normalized_country),
+        "courts": sorted(str(court) for court in dict(catalog["courtCityMap"]).keys()),
         "currentCountry": normalized_country,
         "countries": [
             {"code": code, "label": COUNTRY_LABELS[code]["ru"]}
@@ -2184,6 +2583,197 @@ def list_debtors(country: str = DEFAULT_COUNTRY, _user: dict[str, Any] = Depends
     mark_return_rework_children(rows)
     ordered_rows = order_debtors(rows)
     return [serialize_debtor(row) for row in ordered_rows]
+
+
+@app.get("/api/incoming-correspondence")
+def list_incoming_correspondence(
+    country: str = DEFAULT_COUNTRY,
+    _user: dict[str, Any] = Depends(require_app_user),
+) -> list[dict[str, Any]]:
+    normalized_country = normalize_country_code(country)
+    with get_connection() as connection:
+        rows = [
+            dict(row)
+            for row in connection.execute(
+                """
+                SELECT *
+                FROM incoming_correspondence
+                WHERE COALESCE(country, ?) = ?
+                ORDER BY received_date DESC, id DESC
+                """,
+                (DEFAULT_COUNTRY, normalized_country),
+            ).fetchall()
+        ]
+    return [serialize_incoming_correspondence(row) for row in rows]
+
+
+@app.post("/api/incoming-correspondence", status_code=201)
+def create_incoming_correspondence(
+    payload: IncomingCorrespondenceCreate,
+    _user: dict[str, Any] = Depends(require_app_user),
+) -> dict[str, Any]:
+    country = normalize_country_code(payload.country)
+    created_at = datetime.now().replace(microsecond=0).isoformat()
+    payload_data = payload.model_dump()
+    payload_data["country"] = country
+    validate_incoming_correspondence_payload(payload_data)
+
+    with get_connection() as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO incoming_correspondence (
+                created_at,
+                updated_at,
+                country,
+                category,
+                received_date,
+                receive_method,
+                company,
+                client_name,
+                authority_kind,
+                court,
+                other_authority,
+                contract_number,
+                responsible_person,
+                response_text,
+                response_date,
+                sent_date,
+                comment
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                created_at,
+                created_at,
+                country,
+                payload.category.strip(),
+                payload.received_date.isoformat(),
+                payload.receive_method.strip(),
+                payload.company.strip(),
+                payload.client_name.strip(),
+                payload.authority_kind.strip(),
+                (payload.court or "").strip(),
+                (payload.other_authority or "").strip(),
+                (payload.contract_number or "").strip(),
+                (payload.responsible_person or "").strip(),
+                str(payload.response_text or "").strip() or None,
+                payload.response_date.isoformat() if payload.response_date else None,
+                payload.sent_date.isoformat() if payload.sent_date else None,
+                str(payload.comment or "").strip() or None,
+            ),
+        )
+        record_id = cursor.lastrowid
+        connection.commit()
+        row = connection.execute(
+            "SELECT * FROM incoming_correspondence WHERE id = ?",
+            (record_id,),
+        ).fetchone()
+    return serialize_incoming_correspondence(dict(row))
+
+
+@app.patch("/api/incoming-correspondence/{record_id}")
+def update_incoming_correspondence(
+    record_id: int,
+    payload: IncomingCorrespondenceUpdate,
+    _user: dict[str, Any] = Depends(require_app_user),
+) -> dict[str, Any]:
+    updates = payload.model_dump(exclude_unset=True)
+    if not updates:
+        raise HTTPException(status_code=400, detail="Нет полей для обновления.")
+
+    with get_connection() as connection:
+        existing = connection.execute(
+            "SELECT * FROM incoming_correspondence WHERE id = ?",
+            (record_id,),
+        ).fetchone()
+        if existing is None:
+            raise HTTPException(status_code=404, detail="Запись не найдена.")
+
+        existing_dict = dict(existing)
+        country = normalize_country_code(str(updates.get("country") or existing_dict.get("country") or DEFAULT_COUNTRY))
+        merged_payload = {
+            "country": country,
+            "category": updates.get("category", existing_dict.get("category")),
+            "received_date": updates.get("received_date", parse_date_value(existing_dict.get("received_date"))),
+            "receive_method": updates.get("receive_method", existing_dict.get("receive_method")),
+            "company": updates.get("company", existing_dict.get("company")),
+            "client_name": updates.get("client_name", existing_dict.get("client_name")),
+            "authority_kind": updates.get("authority_kind", existing_dict.get("authority_kind")),
+            "court": updates.get("court", existing_dict.get("court")),
+            "other_authority": updates.get("other_authority", existing_dict.get("other_authority")),
+            "contract_number": updates.get("contract_number", existing_dict.get("contract_number")),
+            "responsible_person": updates.get("responsible_person", existing_dict.get("responsible_person")),
+            "response_text": updates.get("response_text", existing_dict.get("response_text")),
+            "response_date": updates.get("response_date", parse_date_value(existing_dict.get("response_date"))),
+            "sent_date": updates.get("sent_date", parse_date_value(existing_dict.get("sent_date"))),
+            "comment": updates.get("comment", existing_dict.get("comment")),
+        }
+        validate_incoming_correspondence_payload(merged_payload)
+
+        normalized_updates: dict[str, Any] = {}
+        for key, value in updates.items():
+            if key == "country":
+                normalized_updates[key] = country
+            elif key in {"received_date", "response_date", "sent_date"}:
+                normalized_updates[key] = value.isoformat() if value else None
+            elif isinstance(value, str):
+                normalized_updates[key] = value.strip()
+            else:
+                normalized_updates[key] = value
+
+        normalized_updates["updated_at"] = datetime.now().replace(microsecond=0).isoformat()
+        assignments = ", ".join(f"{field} = ?" for field in normalized_updates)
+        values = list(normalized_updates.values()) + [record_id]
+        connection.execute(
+            f"UPDATE incoming_correspondence SET {assignments} WHERE id = ?",
+            values,
+        )
+        connection.commit()
+        row = connection.execute(
+            "SELECT * FROM incoming_correspondence WHERE id = ?",
+            (record_id,),
+        ).fetchone()
+    return serialize_incoming_correspondence(dict(row))
+
+
+@app.delete("/api/incoming-correspondence/{record_id}", status_code=204, response_class=Response)
+def delete_incoming_correspondence(
+    record_id: int,
+    _user: dict[str, Any] = Depends(require_app_user),
+) -> Response:
+    with get_connection() as connection:
+        existing = connection.execute(
+            "SELECT 1 FROM incoming_correspondence WHERE id = ?",
+            (record_id,),
+        ).fetchone()
+        if existing is None:
+            raise HTTPException(status_code=404, detail="Запись не найдена.")
+        connection.execute("DELETE FROM incoming_correspondence WHERE id = ?", (record_id,))
+        connection.commit()
+    return Response(status_code=204)
+
+
+@app.post("/api/incoming-correspondence/{record_id}/claim-response-pdf")
+def generate_incoming_claim_response_pdf(
+    record_id: int,
+    payload: IncomingClaimResponsePdfRequest,
+    _user: dict[str, Any] = Depends(require_app_user),
+) -> FileResponse:
+    with get_connection() as connection:
+        existing = connection.execute(
+            "SELECT * FROM incoming_correspondence WHERE id = ?",
+            (record_id,),
+        ).fetchone()
+        if existing is None:
+            raise HTTPException(status_code=404, detail="Запись не найдена.")
+        record = dict(existing)
+
+    if str(record.get("category") or "").strip() != INCOMING_CATEGORY_CLAIM:
+        raise HTTPException(status_code=400, detail="Ответ на претензию можно сформировать только для претензии.")
+
+    pdf_path = render_incoming_claim_response_pdf(record, payload)
+    file_name = f"otvet_na_pretenziyu_{record_id}.pdf"
+    return FileResponse(pdf_path, media_type="application/pdf", filename=file_name)
 
 
 @app.post("/api/debtors", status_code=201)

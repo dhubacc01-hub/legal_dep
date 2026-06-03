@@ -153,6 +153,30 @@ def init_db() -> None:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS incoming_correspondence (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                country TEXT NOT NULL DEFAULT 'kz',
+                category TEXT NOT NULL,
+                received_date TEXT NOT NULL,
+                receive_method TEXT NOT NULL DEFAULT '',
+                company TEXT NOT NULL DEFAULT '',
+                client_name TEXT NOT NULL DEFAULT '',
+                authority_kind TEXT NOT NULL DEFAULT 'court',
+                court TEXT NOT NULL DEFAULT '',
+                other_authority TEXT NOT NULL DEFAULT '',
+                contract_number TEXT NOT NULL DEFAULT '',
+                responsible_person TEXT NOT NULL DEFAULT '',
+                response_text TEXT,
+                response_date TEXT,
+                sent_date TEXT,
+                comment TEXT
+            )
+            """
+        )
         ensure_column(connection, "debtors", "parent_debtor_id", "INTEGER")
         ensure_column(connection, "debtors", "imported_claim_sent_days", "INTEGER")
         ensure_column(connection, "debtors", "imported_debt_days", "INTEGER")
@@ -204,6 +228,23 @@ def init_db() -> None:
         ensure_column(connection, "company_requisites", "is_active", "INTEGER NOT NULL DEFAULT 1")
         ensure_column(connection, "company_requisites", "created_at", "TEXT NOT NULL DEFAULT ''")
         ensure_column(connection, "company_requisites", "updated_at", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "incoming_correspondence", "created_at", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "incoming_correspondence", "updated_at", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "incoming_correspondence", "country", "TEXT NOT NULL DEFAULT 'kz'")
+        ensure_column(connection, "incoming_correspondence", "category", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "incoming_correspondence", "received_date", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "incoming_correspondence", "receive_method", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "incoming_correspondence", "company", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "incoming_correspondence", "client_name", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "incoming_correspondence", "authority_kind", "TEXT NOT NULL DEFAULT 'court'")
+        ensure_column(connection, "incoming_correspondence", "court", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "incoming_correspondence", "other_authority", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "incoming_correspondence", "contract_number", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "incoming_correspondence", "responsible_person", "TEXT NOT NULL DEFAULT ''")
+        ensure_column(connection, "incoming_correspondence", "response_text", "TEXT")
+        ensure_column(connection, "incoming_correspondence", "response_date", "TEXT")
+        ensure_column(connection, "incoming_correspondence", "sent_date", "TEXT")
+        ensure_column(connection, "incoming_correspondence", "comment", "TEXT")
         ensure_custom_courts_schema(connection)
         connection.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique ON users(username)"
@@ -216,6 +257,9 @@ def init_db() -> None:
         )
         connection.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_company_requisites_country_key_unique ON company_requisites(country, company_key)"
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_incoming_correspondence_country_received_date ON incoming_correspondence(country, received_date DESC, id DESC)"
         )
 
 

@@ -203,6 +203,7 @@ class DiSellApiClient:
             "contract_date": deal.get("signDate"),
             "client_name": self.build_full_name(personal_details),
             "client_short_name": self.build_short_name(personal_details),
+            "client_birth_date": self.extract_birth_date(personal_details),
             "client_inn": self.normalize_optional_text(
                 personal_details.get("individualTaxNumber") or personal_details.get("identificationNumber")
             ),
@@ -365,6 +366,21 @@ class DiSellApiClient:
         )
         result = " ".join(part for part in [surname, initials] if part).strip()
         return result or self.build_full_name(personal_details)
+
+    def extract_birth_date(self, personal_details: dict[str, Any]) -> str | None:
+        for key in ("birthday", "birthDate", "dateOfBirth"):
+            value = self.normalize_optional_text(personal_details.get(key))
+            if not value:
+                continue
+            normalized = str(value).strip()
+            if "T" in normalized:
+                normalized = normalized.split("T", 1)[0]
+            if re.fullmatch(r"\d{4}-\d{2}-\d{2}", normalized):
+                return normalized
+            if re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", normalized):
+                day, month, year = normalized.split(".")
+                return f"{year}-{month}-{day}"
+        return None
 
     def get_product_names(self, company_id: str, product_ids: list[str]) -> list[str]:
         normalized_ids = [product_id for product_id in dict.fromkeys(product_ids) if product_id]

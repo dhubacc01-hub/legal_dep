@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ page_title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-block">
+          <div class="brand-mark">Legal Department</div>
+          <div>
+            <p class="eyebrow">Юридический департамент</p>
+            <h1>Входящая корреспонденция</h1>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <label class="topbar-select-wrap">
+            <span class="eyebrow topbar-select-label">Страна</span>
+            <select class="topbar-select" id="incoming-country-select">
+              <option value="kz">KZ Казахстан</option>
+              <option value="uz">UZ Узбекистан</option>
+            </select>
+          </label>
+        </div>
+      </header>
+
+      <nav class="nav-tabs">
+        <a class="nav-tab" href="/">Должники</a>
+        <a class="nav-tab active" href="/incoming-correspondence">Входящая корреспонденция</a>
+      </nav>
+
+      <main class="content">
+        <section class="actions-bar">
+          <button class="primary-button" id="open-incoming-modal" type="button">Добавить запись</button>
+        </section>
+
+        <section class="correspondence-tabs" aria-label="Вкладки корреспонденции">
+          <button class="tab-chip active" id="incoming-tab-claims" type="button" data-tab="claims">Претензии</button>
+          <button class="tab-chip" id="incoming-tab-other" type="button" data-tab="other">Прочее</button>
+        </section>
+
+        <section class="active-filters hidden" id="incoming-active-filters" aria-live="polite">
+          <div class="active-filters-label">Активные фильтры</div>
+          <div class="active-filters-list" id="incoming-active-filters-list"></div>
+        </section>
+
+        <section class="table-card">
+          <div class="table-wrap">
+            <table class="incoming-table" id="incoming-table">
+              <thead id="incoming-thead"></thead>
+              <tbody id="incoming-tbody">
+                <tr class="empty-row">
+                  <td colspan="14">Загрузка данных...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-backdrop hidden" id="incoming-modal-backdrop">
+      <div class="modal modal-compact" id="incoming-modal" role="dialog" aria-modal="true" aria-labelledby="incoming-modal-title">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow" id="incoming-modal-eyebrow">Новая запись</p>
+            <h3 id="incoming-modal-title">Входящая корреспонденция</h3>
+          </div>
+          <button class="icon-button" id="close-incoming-modal" type="button" aria-label="Закрыть">&times;</button>
+        </div>
+
+        <form id="incoming-form" class="modal-form">
+          <input name="record_id" type="hidden" />
+
+          <label class="modal-full-width">
+            <span>Категория</span>
+            <select name="category" id="incoming-category-select" required></select>
+          </label>
+
+          <div class="modal-inline-hint modal-full-width" id="incoming-category-hint">
+            Сначала выберите категорию, после этого откроются поля записи.
+          </div>
+
+          <div class="modal-inline-status hidden" id="incoming-crm-status" aria-live="polite"></div>
+
+          <div class="incoming-details hidden" id="incoming-details">
+            <label>
+              <span>Дата получения письма</span>
+              <input
+                name="received_date"
+                type="text"
+                class="modal-date-input date-input"
+                data-date-input="true"
+                placeholder="дд.мм.гггг"
+                autocomplete="off"
+                required
+              />
+            </label>
+
+            <label>
+              <span>Способ получения</span>
+              <select name="receive_method" id="incoming-receive-method-select" required></select>
+            </label>
+
+            <label>
+              <span>Компания</span>
+              <select name="company" id="incoming-company-select" required></select>
+            </label>
+
+            <label class="modal-full-width">
+              <span class="field-label-with-action">
+                <span>№ договора</span>
+                <button class="ghost-button inline-action-button hidden" id="incoming-lookup-contract-button" type="button">CRM</button>
+              </span>
+              <input name="contract_number" type="text" />
+            </label>
+
+            <label class="modal-full-width">
+              <span>ФИО клиента</span>
+              <input name="client_name" type="text" required />
+            </label>
+
+            <div class="modal-full-width authority-toggle-group">
+              <label class="authority-toggle">
+                <input type="checkbox" id="incoming-authority-court" />
+                <span>Суд</span>
+              </label>
+              <label class="authority-toggle">
+                <input type="checkbox" id="incoming-authority-other" />
+                <span>Другой орган</span>
+              </label>
+            </div>
+
+            <input name="authority_kind" type="hidden" value="court" />
+
+            <div class="modal-full-width" id="incoming-court-block">
+              <label class="modal-full-width">
+                <span>Поиск суда</span>
+                <input id="incoming-court-search" type="text" placeholder="Начните вводить название суда" />
+              </label>
+              <label class="modal-full-width">
+                <span class="field-label-with-action">
+                  <span>Суд</span>
+                  <button class="ghost-button inline-action-button" id="open-incoming-court-modal" type="button">+</button>
+                </span>
+                <select name="court" id="incoming-court-select" size="6"></select>
+              </label>
+            </div>
+
+            <label class="modal-full-width hidden" id="incoming-other-authority-block">
+              <span>Другой орган</span>
+              <input name="other_authority" type="text" />
+            </label>
+
+            <div class="incoming-claim-only hidden" id="incoming-claim-only">
+              <label>
+                <span>Ответственный за подготовку ответа</span>
+                <input name="responsible_person" type="text" />
+              </label>
+
+              <label class="modal-full-width">
+                <span>Ответ</span>
+                <select name="response_text" id="incoming-response-select"></select>
+              </label>
+
+              <label class="modal-full-width">
+                <span>Комментарий</span>
+                <textarea name="comment" rows="2"></textarea>
+              </label>
+            </div>
+
+            <div class="incoming-other-only hidden" id="incoming-other-only">
+              <label class="modal-full-width">
+                <span>Комментарий</span>
+                <textarea name="generic_comment" rows="2"></textarea>
+              </label>
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button class="secondary-button" id="cancel-incoming-modal" type="button">Отмена</button>
+            <button class="primary-button" id="save-incoming-button" type="submit">Сохранить</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="incoming-delete-modal-backdrop">
+      <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="incoming-delete-modal-title">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Подтверждение</p>
+            <h3 id="incoming-delete-modal-title">Удалить запись?</h3>
+          </div>
+          <button class="icon-button" id="close-incoming-delete-modal" type="button" aria-label="Закрыть">&times;</button>
+        </div>
+        <p class="confirm-copy">Запись будет удалена без возможности восстановления.</p>
+        <div class="modal-actions">
+          <button class="secondary-button" id="cancel-incoming-delete-modal" type="button">Отмена</button>
+          <button class="danger-button" id="confirm-incoming-delete-button" type="button">Удалить</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="incoming-claim-response-modal-backdrop">
+      <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="incoming-claim-response-modal-title">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Генерация документа</p>
+            <h3 id="incoming-claim-response-modal-title">Ответ на претензию</h3>
+          </div>
+          <button class="icon-button" id="close-incoming-claim-response-modal" type="button" aria-label="Закрыть">&times;</button>
+        </div>
+
+        <form id="incoming-claim-response-form" class="modal-form">
+          <div class="modal-static-field modal-full-width">
+            <span>Клиент</span>
+            <input id="incoming-claim-response-client-name" type="text" readonly />
+          </div>
+
+          <label class="modal-full-width">
+            <span>Исх.</span>
+            <input id="incoming-claim-response-outgoing-number" name="outgoing_number" type="text" />
+          </label>
+
+          <label class="modal-full-width">
+            <span>Текст ответа</span>
+            <textarea
+              class="autoresize-textarea incoming-claim-response-textarea"
+              id="incoming-claim-response-body-text"
+              name="body_text"
+              rows="10"
+              required
+            ></textarea>
+          </label>
+
+          <div class="modal-actions">
+            <button class="secondary-button" id="cancel-incoming-claim-response-modal" type="button">Отмена</button>
+            <button class="primary-button" id="generate-incoming-claim-response-button" type="submit">Генерировать</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="incoming-court-modal-backdrop">
+      <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="incoming-court-modal-title">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Новый суд</p>
+            <h3 id="incoming-court-modal-title">Добавить суд</h3>
+          </div>
+          <button class="icon-button" id="close-incoming-court-modal" type="button" aria-label="Закрыть">&times;</button>
+        </div>
+
+        <form id="incoming-court-form" class="modal-form court-form">
+          <label class="modal-full-width">
+            <span>Название</span>
+            <input name="name" type="text" required />
+          </label>
+          <label>
+            <span>Город</span>
+            <input name="city" type="text" required />
+          </label>
+          <label>
+            <span>Область</span>
+            <input name="region" type="text" required />
+          </label>
+          <div class="modal-actions">
+            <button class="secondary-button" id="cancel-incoming-court-modal" type="button">Отмена</button>
+            <button class="primary-button" id="save-incoming-court-button" type="submit">Сохранить</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="date-picker-popover hidden" id="incoming-date-picker-popover">
+      <div class="date-picker-panel">
+        <div class="date-picker-header">
+          <button class="icon-button date-picker-nav" type="button" data-date-nav="-1">‹</button>
+          <div class="date-picker-title-group">
+            <button class="date-picker-title date-picker-title-month" type="button" data-date-nav="month-select"></button>
+            <button class="date-picker-title date-picker-title-year" type="button" data-date-nav="year-select"></button>
+          </div>
+          <button class="icon-button date-picker-nav" type="button" data-date-nav="1">›</button>
+        </div>
+        <div class="date-picker-weekdays" id="incoming-date-picker-weekdays">
+          <span>Пн</span>
+          <span>Вт</span>
+          <span>Ср</span>
+          <span>Чт</span>
+          <span>Пт</span>
+          <span>Сб</span>
+          <span>Вс</span>
+        </div>
+        <div class="date-picker-grid" id="incoming-date-picker-grid"></div>
+        <div class="date-picker-footer">
+          <button class="ghost-button date-picker-action" type="button" data-date-action="clear">Очистить</button>
+          <button class="primary-button date-picker-action" type="button" data-date-action="today">Сегодня</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      window.__APP_CONTEXT__ = {{ app_context_json | safe }};
+    </script>
+    <script src="{{ url_for('static', path='incoming_correspondence.js') }}" defer></script>
+  </body>
+</html>
