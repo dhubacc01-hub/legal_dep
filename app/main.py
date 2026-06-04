@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import date, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from urllib import error as urllib_error
+from urllib import request as urllib_request
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.responses import FileResponse, HTMLResponse, Response
@@ -182,6 +185,8 @@ INCOMING_CORRESPONDENCE_CATEGORIES = [
 INCOMING_CATEGORY_CLAIM = "Претензия"
 INCOMING_AUTHORITY_COURT = "court"
 INCOMING_AUTHORITY_OTHER = "other"
+TELEGRAM_BOT_TOKEN = os.getenv("LEGAL_DEP_TELEGRAM_BOT_TOKEN", "").strip()
+TELEGRAM_CHAT_ID = os.getenv("LEGAL_DEP_TELEGRAM_CHAT_ID", "").strip()
 
 PRIORITY_CATEGORY_OVERRIDES = {
     "Закрытая компания",
@@ -1682,6 +1687,59 @@ def validate_incoming_correspondence_payload(payload: dict[str, Any]) -> None:
         raise HTTPException(status_code=400, detail="Укажите другой орган.")
 
 
+def send_telegram_message(text: str) -> bool:
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return False
+
+    payload = json.dumps({"chat_id": TELEGRAM_CHAT_ID, "text": text}).encode("utf-8")
+    request = urllib_request.Request(
+        f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib_request.urlopen(request, timeout=15) as response:
+            response_payload = json.loads(response.read().decode("utf-8"))
+            return bool(response_payload.get("ok"))
+    except (urllib_error.URLError, urllib_error.HTTPError, TimeoutError, json.JSONDecodeError):
+        return False
+
+
+def process_due_incoming_claim_alerts(connection, country: str) -> None:
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+
+    due_date_iso = (date.today() - timedelta(days=9)).isoformat()
+    rows = connection.execute(
+        """
+        SELECT id, contract_number
+        FROM incoming_correspondence
+        WHERE COALESCE(country, ?) = ?
+          AND category = ?
+          AND received_date <= ?
+          AND COALESCE(TRIM(response_text), '') = ''
+          AND claim_due_alert_sent_at IS NULL
+        ORDER BY received_date ASC, id ASC
+        """,
+        (DEFAULT_COUNTRY, country, INCOMING_CATEGORY_CLAIM, due_date_iso),
+    ).fetchall()
+
+    if not rows:
+        return
+
+    sent_at = datetime.now().replace(microsecond=0).isoformat()
+    for row in rows:
+        contract_number = str(row["contract_number"] or "").strip() or "без номера договора"
+        if not send_telegram_message(f"Требуется срочный ответ на претензию! {contract_number}"):
+            continue
+        connection.execute(
+            "UPDATE incoming_correspondence SET claim_due_alert_sent_at = ?, updated_at = ? WHERE id = ?",
+            (sent_at, sent_at, row["id"]),
+        )
+    connection.commit()
+
+
 def build_incoming_claim_response_output_path(record_id: int) -> Path:
     GENERATED_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -2592,6 +2650,7 @@ def list_incoming_correspondence(
 ) -> list[dict[str, Any]]:
     normalized_country = normalize_country_code(country)
     with get_connection() as connection:
+        process_due_incoming_claim_alerts(connection, normalized_country)
         rows = [
             dict(row)
             for row in connection.execute(

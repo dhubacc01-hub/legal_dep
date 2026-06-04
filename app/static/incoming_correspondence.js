@@ -19,6 +19,7 @@ const TAB_COLUMNS = {
     { key: "category", label: "Категория", type: "select" },
     { key: "responsible_person", label: "Ответственный за подготовку ответа", type: "text" },
     { key: "response_text", label: "Ответ", type: "select" },
+    { key: "response_date", label: "Дата ответа", type: "date" },
     { key: "comment", label: "Комментарий", type: "text" },
     { key: "claim_response", label: "Ответ на претензию", type: "action" },
     { key: "delete", label: "Удалить", type: "action" },
@@ -158,6 +159,7 @@ function bindEvents() {
   });
 
   categorySelect.addEventListener("change", handleCategoryChange);
+  responseSelect.addEventListener("change", handleResponseTextChange);
   authorityCourtCheckbox.addEventListener("change", () => setAuthorityKind(AUTHORITY_COURT));
   authorityOtherCheckbox.addEventListener("change", () => setAuthorityKind(AUTHORITY_OTHER));
   courtSearchInput.addEventListener("input", renderCourtOptions);
@@ -296,6 +298,19 @@ function handleCategoryChange() {
     crmStatus.classList.add("hidden");
     form.elements.responsible_person.value = form.elements.responsible_person.value || "";
     form.elements.response_text.value = form.elements.response_text.value || "";
+  }
+}
+
+function handleResponseTextChange() {
+  if (categorySelect.value !== INCOMING_CLAIM_CATEGORY) {
+    return;
+  }
+  const responseValue = String(form.elements.response_text.value || "").trim();
+  if (!responseValue) {
+    return;
+  }
+  if (!String(form.elements.response_date.value || "").trim()) {
+    form.elements.response_date.value = formatDisplayDate(toIsoDateFromDate(new Date())) || "";
   }
 }
 
@@ -658,6 +673,7 @@ function openModal(mode, recordId = null) {
   form.elements.company.value = "";
   form.elements.authority_kind.value = AUTHORITY_COURT;
   form.elements.generic_comment.value = "";
+  form.elements.response_date.value = "";
   receiveMethodSelect.value = "";
   responseSelect.value = "";
 
@@ -676,6 +692,7 @@ function openModal(mode, recordId = null) {
       form.elements.other_authority.value = record.other_authority || "";
       form.elements.responsible_person.value = record.responsible_person || "";
       form.elements.response_text.value = record.response_text || "";
+      form.elements.response_date.value = formatDisplayDate(record.response_date_iso) || "";
       form.elements.comment.value = record.comment || "";
       form.elements.generic_comment.value = record.comment || "";
     }
@@ -816,7 +833,10 @@ async function handleSubmit(event) {
     contract_number: String(form.elements.contract_number.value || "").trim(),
     responsible_person: category === INCOMING_CLAIM_CATEGORY ? String(form.elements.responsible_person.value || "").trim() : "",
     response_text: category === INCOMING_CLAIM_CATEGORY ? String(form.elements.response_text.value || "").trim() : "",
-    response_date: null,
+    response_date:
+      category === INCOMING_CLAIM_CATEGORY
+        ? getDateInputIsoValue(form.elements.response_date)
+        : null,
     sent_date: null,
     comment:
       category === INCOMING_CLAIM_CATEGORY
