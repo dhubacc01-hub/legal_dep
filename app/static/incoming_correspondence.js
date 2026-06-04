@@ -1,4 +1,5 @@
 const COUNTRY_STORAGE_KEY = "legal-department-country";
+const EMPTY_FILTER_VALUE = "__EMPTY__";
 
 const INCOMING_CLAIM_CATEGORY = "Претензия";
 const AUTHORITY_COURT = "court";
@@ -338,7 +339,10 @@ function matchesFilters(record) {
         if (!filterValue.length) {
           return true;
         }
-        const value = String(record[column.key] ?? "");
+        const value = String(record[column.key] ?? "").trim();
+        if (!value && filterValue.includes(EMPTY_FILTER_VALUE)) {
+          return true;
+        }
         return filterValue.includes(value);
       }
 
@@ -432,6 +436,7 @@ function renderFilterCell(column) {
     } else {
       options = state.referenceData?.categories ?? [];
     }
+    const filterOptions = [{ value: EMPTY_FILTER_VALUE, label: "—" }, ...options.map((item) => ({ value: item, label: item }))];
     return `
       <th class="filter-header-cell">
         <details class="filter-multi" data-filter-group="${column.key}">
@@ -441,17 +446,17 @@ function renderFilterCell(column) {
               Очистить
             </button>
             <div class="filter-multi-options">
-              ${options
+              ${filterOptions
                 .map(
                   (item) => `
                     <label class="filter-option">
                       <input
                         type="checkbox"
                         data-filter-key="${column.key}"
-                        value="${escapeHtmlAttribute(item)}"
-                        ${state.filters[column.key].includes(item) ? "checked" : ""}
+                        value="${escapeHtmlAttribute(item.value)}"
+                        ${state.filters[column.key].includes(item.value) ? "checked" : ""}
                       />
-                      <span>${escapeHtml(item)}</span>
+                      <span>${escapeHtml(item.label)}</span>
                     </label>
                   `,
                 )
@@ -488,7 +493,7 @@ function renderActiveFilters() {
   for (const [key, value] of Object.entries(state.filters)) {
     if (Array.isArray(value)) {
       value.forEach((item) => {
-        chips.push({ key, text: `${labelForColumn(key)}: ${item}`, item });
+        chips.push({ key, text: `${labelForColumn(key)}: ${item === EMPTY_FILTER_VALUE ? "—" : item}`, item });
       });
       continue;
     }
@@ -603,7 +608,7 @@ function updateFilterSummary(key) {
     return;
   }
   if (selected.length === 1) {
-    summary.textContent = selected[0];
+    summary.textContent = selected[0] === EMPTY_FILTER_VALUE ? "—" : selected[0];
     return;
   }
   summary.textContent = `Выбрано: ${selected.length}`;
@@ -938,6 +943,10 @@ function escapeHtmlAttribute(value) {
 }
 
 function handleDocumentClick(event) {
+  if (!event.target.closest(".filter-multi")) {
+    closeAllFilterDropdowns();
+  }
+
   if (event.target.closest("#incoming-date-picker-popover")) {
     return;
   }
@@ -1026,11 +1035,12 @@ function handleDateInput(event) {
 }
 
 function handleDateKeydown(event) {
-  const activeInput = event.target.closest(".date-input");
   if (event.key === "Escape") {
+    closeAllFilterDropdowns();
     closeDatePicker();
     return;
   }
+  const activeInput = event.target.closest(".date-input");
   if (!activeInput) {
     return;
   }
