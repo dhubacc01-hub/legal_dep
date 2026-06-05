@@ -1875,11 +1875,16 @@ def render_incoming_claim_response_pdf(
 
     outgoing_number = str(payload.outgoing_number or "").strip()
     body_text = str(payload.body_text or "").strip()
-    body_paragraphs = [
-        paragraph.strip()
-        for paragraph in body_text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-        if paragraph.strip()
-    ]
+    body_lines: list[str] = []
+    normalized_body_lines = body_text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    for raw_line in normalized_body_lines:
+        if not raw_line.strip():
+            body_lines.append("")
+            continue
+        body_lines.extend(wrap_text(scratch_draw, raw_line.strip(), body_font, content_width))
+
+    while body_lines and not body_lines[-1]:
+        body_lines.pop()
     signature_lines = [
         "С уважением,",
         "Директор",
@@ -1909,28 +1914,6 @@ def render_incoming_claim_response_pdf(
                 draw.text((x, y), wrapped_line, fill="#111111", font=font)
                 y += line_height
         return y
-
-    def estimate_block_height(text: str, *, width: int, first_line_indent: int = 0) -> int:
-        normalized = " ".join((text or "").split())
-        if not normalized:
-            return 0
-
-        if first_line_indent > 0:
-            words = normalized.split(" ")
-            first_line_words: list[str] = []
-            while words:
-                candidate_words = first_line_words + [words[0]]
-                candidate = " ".join(candidate_words).strip()
-                if scratch_draw.textlength(candidate, font=body_font) <= max(40, width - first_line_indent):
-                    first_line_words.append(words.pop(0))
-                else:
-                    break
-            remaining = " ".join(words).strip()
-            lines_count = 1 + (len(wrap_text(scratch_draw, remaining, body_font, width)) if remaining else 0)
-        else:
-            lines_count = len(wrap_text(scratch_draw, normalized, body_font, width))
-
-        return lines_count * body_line_height
 
     def create_page(first_page: bool) -> tuple[Image.Image, ImageDraw.ImageDraw, int]:
         image = Image.new("RGB", (page_width, page_height), "#FFFFFF")
@@ -1985,28 +1968,19 @@ def render_incoming_claim_response_pdf(
         return image, draw, current_y
 
     image, draw, current_y = create_page(True)
-    for paragraph in body_paragraphs:
-        estimated_height = estimate_block_height(
-            paragraph,
-            width=content_width,
-            first_line_indent=paragraph_indent,
-        ) + paragraph_spacing
-        if current_y + estimated_height > page_height - margin_bottom - signature_height:
+    blank_line_height = max(int(body_line_height * 0.6), 12)
+    for line in body_lines:
+        line_height = blank_line_height if not line else body_line_height
+        if current_y + line_height > page_height - margin_bottom - signature_height:
             pages.append(image)
             image, draw, current_y = create_page(False)
 
-        current_y = draw_text_block(
-            draw,
-            paragraph,
-            x=margin_left,
-            y=current_y,
-            width=content_width,
-            font=body_font,
-            line_spacing=body_line_spacing,
-            align="left",
-            paragraph_spacing=paragraph_spacing,
-            first_line_indent=paragraph_indent,
-        )
+        if not line:
+            current_y += blank_line_height
+            continue
+
+        draw.text((margin_left, current_y), line, fill="#111111", font=body_font)
+        current_y += body_line_height
 
     if current_y + signature_height > page_height - margin_bottom:
         pages.append(image)
