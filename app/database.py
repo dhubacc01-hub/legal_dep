@@ -174,6 +174,8 @@ def init_db() -> None:
                 response_date TEXT,
                 sent_date TEXT,
                 claim_due_alert_sent_at TEXT,
+                claim_response_pdf_name TEXT,
+                claim_response_generated_at TEXT,
                 comment TEXT
             )
             """
@@ -246,6 +248,8 @@ def init_db() -> None:
         ensure_column(connection, "incoming_correspondence", "response_date", "TEXT")
         ensure_column(connection, "incoming_correspondence", "sent_date", "TEXT")
         ensure_column(connection, "incoming_correspondence", "claim_due_alert_sent_at", "TEXT")
+        ensure_column(connection, "incoming_correspondence", "claim_response_pdf_name", "TEXT")
+        ensure_column(connection, "incoming_correspondence", "claim_response_generated_at", "TEXT")
         ensure_column(connection, "incoming_correspondence", "comment", "TEXT")
         ensure_custom_courts_schema(connection)
         connection.execute(

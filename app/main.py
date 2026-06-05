@@ -1628,10 +1628,12 @@ def serialize_incoming_correspondence(row: dict[str, Any]) -> dict[str, Any]:
     received_date = parse_date_value(row.get("received_date"))
     response_date = parse_date_value(row.get("response_date"))
     sent_date = parse_date_value(row.get("sent_date"))
+    claim_response_generated_at = parse_date_value(row.get("claim_response_generated_at"))
     authority_kind = str(row.get("authority_kind") or INCOMING_AUTHORITY_COURT).strip() or INCOMING_AUTHORITY_COURT
     court = str(row.get("court") or "").strip() or None
     other_authority = str(row.get("other_authority") or "").strip() or None
     authority_display = court if authority_kind == INCOMING_AUTHORITY_COURT else other_authority
+    claim_response_pdf_name = str(row.get("claim_response_pdf_name") or "").strip() or None
 
     return {
         "id": row["id"],
@@ -1653,6 +1655,12 @@ def serialize_incoming_correspondence(row: dict[str, Any]) -> dict[str, Any]:
         "response_date_iso": response_date.isoformat() if response_date else None,
         "sent_date": format_date(sent_date) if sent_date else None,
         "sent_date_iso": sent_date.isoformat() if sent_date else None,
+        "claim_response_pdf_name": claim_response_pdf_name,
+        "claim_response_generated_at": (
+            claim_response_generated_at.isoformat()
+            if claim_response_generated_at
+            else str(row.get("claim_response_generated_at") or "").strip() or None
+        ),
         "comment": str(row.get("comment") or "").strip() or None,
         "created_at": str(row.get("created_at") or ""),
         "updated_at": str(row.get("updated_at") or ""),
@@ -1744,6 +1752,11 @@ def build_incoming_claim_response_output_path(record_id: int) -> Path:
     GENERATED_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     return GENERATED_DIR / f"incoming_claim_response_{record_id}_{timestamp}.pdf"
+
+
+def resolve_incoming_claim_response_file_path(file_name: str) -> Path:
+    GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+    return GENERATED_DIR / Path(str(file_name or "")).name
 
 
 def build_incoming_claim_response_lines(
@@ -2802,7 +2815,7 @@ def delete_incoming_correspondence(
 ) -> Response:
     with get_connection() as connection:
         existing = connection.execute(
-            "SELECT 1 FROM incoming_correspondence WHERE id = ?",
+            "SELECT claim_response_pdf_name FROM incoming_correspondence WHERE id = ?",
             (record_id,),
         ).fetchone()
         if existing is None:
@@ -2831,8 +2844,43 @@ def generate_incoming_claim_response_pdf(
         raise HTTPException(status_code=400, detail="Ответ на претензию можно сформировать только для претензии.")
 
     pdf_path = render_incoming_claim_response_pdf(record, payload)
-    file_name = f"otvet_na_pretenziyu_{record_id}.pdf"
+    file_name = pdf_path.name
+    generated_at = datetime.now().replace(microsecond=0).isoformat()
+    with get_connection() as connection:
+        connection.execute(
+            """
+            UPDATE incoming_correspondence
+            SET claim_response_pdf_name = ?, claim_response_generated_at = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (file_name, generated_at, generated_at, record_id),
+        )
+        connection.commit()
     return FileResponse(pdf_path, media_type="application/pdf", filename=file_name)
+
+
+@app.get("/api/incoming-correspondence/{record_id}/claim-response-file")
+def download_incoming_claim_response_file(
+    record_id: int,
+    _user: dict[str, Any] = Depends(require_app_user),
+) -> FileResponse:
+    with get_connection() as connection:
+        existing = connection.execute(
+            "SELECT claim_response_pdf_name FROM incoming_correspondence WHERE id = ?",
+            (record_id,),
+        ).fetchone()
+        if existing is None:
+            raise HTTPException(status_code=404, detail="Р—Р°РїРёСЃСЊ РЅРµ РЅР°Р№РґРµРЅР°.")
+        file_name = str(existing["claim_response_pdf_name"] or "").strip()
+
+    if not file_name:
+        raise HTTPException(status_code=404, detail="Р”РѕРєСѓРјРµРЅС‚ РѕС‚РІРµС‚Р° РµС‰Рµ РЅРµ СЃС„РѕСЂРјРёСЂРѕРІР°РЅ.")
+
+    file_path = resolve_incoming_claim_response_file_path(file_name)
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Р¤Р°Р№Р» РѕС‚РІРµС‚Р° РЅРµ РЅР°Р№РґРµРЅ.")
+
+    return FileResponse(file_path, media_type="application/pdf", filename=file_path.name)
 
 
 @app.post("/api/debtors", status_code=201)

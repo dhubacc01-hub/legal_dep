@@ -37,6 +37,15 @@ const TAB_COLUMNS = {
   ],
 };
 
+const claimResponseFileColumnIndex = TAB_COLUMNS.claims.findIndex((column) => column.key === "delete");
+if (claimResponseFileColumnIndex >= 0) {
+  TAB_COLUMNS.claims.splice(claimResponseFileColumnIndex, 0, {
+    key: "claim_response_file",
+    label: "Файл ответа",
+    type: "action",
+  });
+}
+
 const state = {
   referenceData: null,
   records: [],
@@ -400,6 +409,9 @@ function renderTable() {
   tbody.querySelectorAll("[data-action='claim-response']").forEach((button) => {
     button.addEventListener("click", () => openClaimResponseModal(Number(button.dataset.id)));
   });
+  tbody.querySelectorAll("[data-action='claim-response-download']").forEach((button) => {
+    button.addEventListener("click", () => handleClaimResponseDownload(Number(button.dataset.id)));
+  });
 }
 
 function renderHead() {
@@ -495,6 +507,12 @@ function renderCell(record, column) {
   }
   if (column.key === "claim_response") {
     return `<td><button class="primary-button compact-button" type="button" data-action="claim-response" data-id="${record.id}">Ответ</button></td>`;
+  }
+  if (column.key === "claim_response_file") {
+    if (!record.claim_response_pdf_name) {
+      return "<td>—</td>";
+    }
+    return `<td><button class="secondary-button compact-button" type="button" data-action="claim-response-download" data-id="${record.id}">Скачать</button></td>`;
   }
   if (column.key === "delete") {
     return `<td><button class="danger-button compact-button" type="button" data-action="delete" data-id="${record.id}">Удалить</button></td>`;
@@ -807,8 +825,29 @@ async function handleClaimResponseSubmit(event) {
     response.headers.get("Content-Disposition"),
     `otvet_na_pretenziyu_${state.claimResponseId}.pdf`,
   );
+  await loadRecords();
+  renderTable();
   downloadBlob(blob, filename);
   closeClaimResponseModal();
+}
+
+async function handleClaimResponseDownload(recordId) {
+  const response = await fetch(`/api/incoming-correspondence/${recordId}/claim-response-file`, {
+    credentials: "same-origin",
+  });
+
+  if (!response.ok) {
+    const errorPayload = await response.json().catch(() => ({}));
+    alert(errorPayload.detail || "Не удалось скачать файл ответа.");
+    return;
+  }
+
+  const blob = await response.blob();
+  const filename = parseFileNameFromDisposition(
+    response.headers.get("Content-Disposition"),
+    `otvet_na_pretenziyu_${recordId}.pdf`,
+  );
+  downloadBlob(blob, filename);
 }
 
 async function handleSubmit(event) {

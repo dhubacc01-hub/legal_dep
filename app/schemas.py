@@ -273,6 +273,8 @@ class IncomingCorrespondenceView(BaseModel):
     response_date_iso: str | None
     sent_date: str | None
     sent_date_iso: str | None
+    claim_response_pdf_name: str | None = None
+    claim_response_generated_at: str | None = None
     comment: str | None
     created_at: str
     updated_at: str

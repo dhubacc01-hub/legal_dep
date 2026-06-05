@@ -27,19 +27,41 @@ def wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, m
     if not normalized:
         return [""]
 
+    def split_long_token(token: str) -> list[str]:
+        if draw.textlength(token, font=font) <= max_width:
+            return [token]
+
+        chunks: list[str] = []
+        current = ""
+        for char in token:
+            candidate = f"{current}{char}"
+            if current and draw.textlength(candidate, font=font) > max_width:
+                chunks.append(current)
+                current = char
+            else:
+                current = candidate
+        if current:
+            chunks.append(current)
+        return chunks or [token]
+
     words = normalized.split(" ")
     lines: list[str] = []
-    current = words[0]
+    current = ""
 
-    for word in words[1:]:
-        candidate = f"{current} {word}".strip()
-        if draw.textlength(candidate, font=font) <= max_width:
-            current = candidate
-        else:
-            lines.append(current)
-            current = word
+    for word in words:
+        fragments = split_long_token(word)
+        for index, fragment in enumerate(fragments):
+            prefix = " " if current and index == 0 else ""
+            candidate = f"{current}{prefix}{fragment}" if current else fragment
+            if draw.textlength(candidate, font=font) <= max_width:
+                current = candidate
+            else:
+                if current:
+                    lines.append(current)
+                current = fragment
 
-    lines.append(current)
+    if current:
+        lines.append(current)
     return lines
 
 
