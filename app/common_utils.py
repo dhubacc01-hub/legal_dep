@@ -1,16 +1,28 @@
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 
 def parse_date_value(value: Any) -> date | None:
     if value in (None, ""):
         return None
+    if isinstance(value, datetime):
+        return value.date()
     if isinstance(value, date):
         return value
-    return date.fromisoformat(str(value))
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return date.fromisoformat(text)
+    except ValueError:
+        pass
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).date()
+    except ValueError:
+        return date.fromisoformat(text.split("T", 1)[0].split(" ", 1)[0])
 
 
 def parse_bool(value: Any) -> bool:
