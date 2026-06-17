@@ -620,6 +620,7 @@ def apply_business_rules(existing: dict[str, Any], updates: dict[str, Any]) -> d
     merged = merge_row(existing, updates)
     financials = compute_financials(merged)
     existing_category = normalize_text(existing.get("category")) or DEFAULT_CATEGORY
+    has_explicit_decision_payout_update = "decision_payout" in updates
 
     if (
         existing.get("parent_debtor_id")
@@ -688,11 +689,12 @@ def apply_business_rules(existing: dict[str, Any], updates: dict[str, Any]) -> d
 
     existing_decision = normalize_text(existing.get("decision"))
     decision = normalize_text(merged.get("decision"))
-    if decision != existing_decision:
+    decision_changed = decision != existing_decision
+    if decision_changed:
         updates["decision_payout"] = 0
         merged["decision_payout"] = 0
 
-    if decision == DECISION_SATISFY:
+    if decision == DECISION_SATISFY and decision_changed and not has_explicit_decision_payout_update:
         updates["decision_payout"] = financials["total_amount"]
         merged["decision_payout"] = financials["total_amount"]
 
