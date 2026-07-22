@@ -76,6 +76,18 @@ STATIC_COMPANY_REQUISITES: dict[str, dict[str, str]] = {
     },
 }
 
+KZ_COMPANY_REQUISITES_OVERRIDES: dict[str, dict[str, str]] = {
+    normalize_company_key('ТОО «AJ - store»'): {
+        "company_block": "ТОО «AJ - store»\nКазахстан, город Алматы, Наурызбайский район, Микрорайон Шугыла, улица САКЕН ЖУНИСОВ, дом 2/22, корпус 3, н.п. 92, почтовый индекс 050035",
+        "address": "Казахстан, город Алматы, Наурызбайский район, Микрорайон Шугыла, улица САКЕН ЖУНИСОВ, дом 2/22, корпус 3, н.п. 92, почтовый индекс 050035",
+    },
+    normalize_company_key('ТОО «Akdeer»'): {
+        "company_block": "ТОО «Akdeer»\nКазахстан, город Алматы, Наурызбайский район, Микрорайон Шугыла, улица САКЕН ЖУНИСОВ, дом 2/22, корпус 3, н.п. 92, почтовый индекс 055579",
+        "address": "Казахстан, город Алматы, Наурызбайский район, Микрорайон Шугыла, улица САКЕН ЖУНИСОВ, дом 2/22, корпус 3, н.п. 92, почтовый индекс 055579",
+        "director_name": "Бердыев Темирлан Мурадович",
+    },
+}
+
 
 def get_seed_company_requisites() -> list[dict[str, str]]:
     records: list[dict[str, str]] = []
@@ -85,12 +97,15 @@ def get_seed_company_requisites() -> list[dict[str, str]]:
         company_name = str(value.get("company_name") or "").strip()
         if not company_name:
             continue
+        normalized_seed_key = normalize_company_key(company_name)
+        record_source = dict(value)
+        record_source.update(KZ_COMPANY_REQUISITES_OVERRIDES.get(normalized_seed_key, {}))
         records.append(
             {
                 "country": "kz",
                 "company_key": normalize_company_lookup_key(company_name),
                 **{
-                    field: str(value.get(field) or "")
+                    field: str(record_source.get(field) or "")
                     for field in (
                         "company_name",
                         "company_block",
