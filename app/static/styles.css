@@ -196,6 +196,7 @@ h3 {
 
 .content {
   padding: 24px 32px 40px;
+  min-height: 0;
 }
 
 .actions-bar {
@@ -311,6 +312,7 @@ h3 {
 .table-card {
   border-radius: 24px;
   overflow: hidden;
+  height: calc(100vh - 188px);
   min-height: calc(100vh - 188px);
   display: flex;
   flex-direction: column;
