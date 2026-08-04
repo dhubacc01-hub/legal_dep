@@ -157,6 +157,7 @@ CATEGORY_SMALL_DEBT = "Маленькая сумма долга"
 CATEGORY_WAITING_FOR_CLAIM_RESPONSE = "Ожидаем ответа по претензии"
 CATEGORY_RETURNED_TO_LEGAL = "Возврат в работу Юр. Отдела"
 CATEGORY_DEBT_CLOSED = "Долг закрыт"
+CATEGORY_TRANSFER_TO_CSI = "Передать на ЧСИ"
 
 DECISION_SATISFY = "Удовлетворить"
 DECISION_PARTIAL = "Частично"
@@ -193,7 +194,7 @@ PRIORITY_CATEGORY_OVERRIDES = {
     "Не должник",
     "Клиент частично оплачивает",
     "Требуется проверка решения в кабинете",
-    "Передать на ЧСИ",
+    CATEGORY_TRANSFER_TO_CSI,
 }
 
 DECISIONS_THAT_CLOSE_LAWSUIT = {
@@ -203,7 +204,7 @@ DECISIONS_THAT_CLOSE_LAWSUIT = {
 }
 
 SAFE_IMPORT_DECISION_CATEGORY_MAP = {
-    "Передать на ЧСИ": "Передать на ЧСИ",
+    CATEGORY_TRANSFER_TO_CSI: CATEGORY_TRANSFER_TO_CSI,
     "Прошел срок исковой давности": CATEGORY_LIMITATION_EXPIRED,
     "Маленькая сумма долга": CATEGORY_SMALL_DEBT,
     "Долг закрыт!": CATEGORY_DEBT_CLOSED,
@@ -1510,6 +1511,25 @@ def normalize_updates(updates: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+def apply_csi_transfer_state(existing: dict[str, Any], updates: dict[str, Any]) -> dict[str, Any]:
+    if "category" not in updates:
+        return updates
+
+    requested_category = normalize_text(updates.get("category"))
+    existing_category = normalize_text(existing.get("category"))
+    existing_marker = normalize_text(existing.get("csi_transferred_at"))
+
+    if requested_category == CATEGORY_TRANSFER_TO_CSI:
+        if existing_category != CATEGORY_TRANSFER_TO_CSI or not existing_marker:
+            updates["csi_transferred_at"] = datetime.now().replace(microsecond=0).isoformat()
+        return updates
+
+    if existing_marker:
+        updates["csi_transferred_at"] = None
+
+    return updates
+
+
 def extract_lawsuit_schedule(row: dict[str, Any]) -> dict[str, Any] | None:
     installment_from = parse_date_value(row.get("lawsuit_installment_from"))
     installment_to = parse_date_value(row.get("lawsuit_installment_to"))
@@ -1548,6 +1568,7 @@ def serialize_debtor(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": row["id"],
         "country": normalize_country_code(str(row.get("country") or DEFAULT_COUNTRY)),
+        "csi_transferred_at": row.get("csi_transferred_at"),
         "parent_debtor_id": row.get("parent_debtor_id"),
         "is_return_rework": bool(row.get("parent_debtor_id")),
         "entry_date": format_date(created_at.date()),
@@ -2177,6 +2198,8 @@ def index(request: Request) -> HTMLResponse:
         {
             "request": request,
             "page_title": "Legal Department",
+            "active_page": "debtors",
+            "show_create_button": True,
             "app_context_json": json.dumps({"user": serialize_user(user), "page": "debtors"}, ensure_ascii=False),
         },
     )
@@ -2198,7 +2221,28 @@ def incoming_correspondence_page(request: Request) -> HTMLResponse:
         {
             "request": request,
             "page_title": "Входящая корреспонденция",
+            "active_page": "incoming",
             "app_context_json": json.dumps({"user": serialize_user(user), "page": "incoming"}, ensure_ascii=False),
+        },
+    )
+
+
+@app.get("/csi", response_class=HTMLResponse)
+def csi_page(request: Request) -> HTMLResponse:
+    user = get_optional_current_user(request)
+    if user is None:
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "page_title": "Legal Department Login"},
+        )
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "page_title": "ЧСИ",
+            "active_page": "csi",
+            "show_create_button": False,
+            "app_context_json": json.dumps({"user": serialize_user(user), "page": "csi"}, ensure_ascii=False),
         },
     )
 
@@ -2622,7 +2666,37 @@ def list_debtors(country: str = DEFAULT_COUNTRY, _user: dict[str, Any] = Depends
         rows = [
             dict(row)
             for row in connection.execute(
-                "SELECT * FROM debtors WHERE COALESCE(country, ?) = ?",
+                """
+                SELECT *
+                FROM debtors
+                WHERE COALESCE(country, ?) = ?
+                  AND csi_transferred_at IS NULL
+                """,
+                (DEFAULT_COUNTRY, normalized_country),
+            ).fetchall()
+        ]
+
+    mark_return_rework_children(rows)
+    ordered_rows = order_debtors(rows)
+    return [serialize_debtor(row) for row in ordered_rows]
+
+
+@app.get("/api/csi-debtors")
+def list_csi_debtors(
+    country: str = DEFAULT_COUNTRY,
+    _user: dict[str, Any] = Depends(require_app_user),
+) -> list[dict[str, Any]]:
+    normalized_country = normalize_country_code(country)
+    with get_connection() as connection:
+        rows = [
+            dict(row)
+            for row in connection.execute(
+                """
+                SELECT *
+                FROM debtors
+                WHERE COALESCE(country, ?) = ?
+                  AND csi_transferred_at IS NOT NULL
+                """,
                 (DEFAULT_COUNTRY, normalized_country),
             ).fetchall()
         ]
@@ -2968,6 +3042,7 @@ def update_debtor(debtor_id: int, payload: DebtorUpdate, _user: dict[str, Any] =
         updates = apply_business_rules(existing_dict, updates)
         validate_category_update(existing_dict, updates)
         validate_decision_update(existing_dict, updates)
+        updates = apply_csi_transfer_state(existing_dict, updates)
         normalized = normalize_updates(updates)
         assignments = ", ".join(f"{field} = ?" for field in normalized)
         values = list(normalized.values()) + [debtor_id]

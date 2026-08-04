@@ -9,6 +9,7 @@
   currentPage: 1,
   currentLanguage: "ru",
   currentCountry: "kz",
+  appPage: window.__APP_CONTEXT__?.page ?? "debtors",
   currentUser: window.__APP_CONTEXT__?.user ?? null,
   datePicker: {
     activeInput: null,
@@ -1143,8 +1144,12 @@ async function initAppData() {
 
 document.addEventListener("DOMContentLoaded", async () => {
   ensureLanguageControls();
+  syncPrimaryNavigation();
   state.currentLanguage = window.localStorage.getItem(LANGUAGE_STORAGE_KEY) || "ru";
   state.currentCountry = window.localStorage.getItem(COUNTRY_STORAGE_KEY) || "kz";
+  if (state.appPage === "csi") {
+    openModalButton?.closest(".actions-bar")?.classList.add("hidden");
+  }
   document.getElementById("country-select").value = state.currentCountry;
   document.getElementById("language-select").value = state.currentLanguage;
   if (closeLawsuitModalButton) {
@@ -1681,7 +1686,8 @@ async function loadReferenceData() {
 }
 
 async function loadDebtors() {
-  const response = await fetch(`/api/debtors?country=${encodeURIComponent(state.currentCountry)}`);
+  const endpoint = state.appPage === "csi" ? "/api/csi-debtors" : "/api/debtors";
+  const response = await fetch(`${endpoint}?country=${encodeURIComponent(state.currentCountry)}`);
   if (response.status === 401) {
     window.location.href = "/";
     return;
@@ -1701,6 +1707,27 @@ async function loadDebtors() {
     throw new Error("DEBTORS_INVALID_PAYLOAD");
   }
   renderDebtors();
+}
+
+function syncPrimaryNavigation() {
+  const nav = document.querySelector(".nav-tabs");
+  if (!nav) {
+    return;
+  }
+
+  let csiLink = nav.querySelector('a[href="/csi"]');
+  if (!csiLink) {
+    csiLink = document.createElement("a");
+    csiLink.className = "nav-tab";
+    csiLink.href = "/csi";
+    csiLink.textContent = "ЧСИ";
+    nav.appendChild(csiLink);
+  }
+
+  const activeHref = state.appPage === "csi" ? "/csi" : "/";
+  nav.querySelectorAll(".nav-tab").forEach((link) => {
+    link.classList.toggle("active", link.getAttribute("href") === activeHref);
+  });
 }
 
 function initFilters() {

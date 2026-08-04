@@ -1,5 +1,6 @@
 const COUNTRY_STORAGE_KEY = "legal-department-country";
 const EMPTY_FILTER_VALUE = "__EMPTY__";
+const APP_PAGE = window.__APP_CONTEXT__?.page ?? "incoming";
 
 const INCOMING_CLAIM_CATEGORY = "Претензия";
 const AUTHORITY_COURT = "court";
@@ -135,10 +136,32 @@ function buildDefaultFilters() {
 }
 
 async function init() {
+  syncPrimaryNavigation();
   countrySelect.value = state.currentCountry;
   state.filters = buildDefaultFilters();
   bindEvents();
   await reloadData();
+}
+
+function syncPrimaryNavigation() {
+  const nav = document.querySelector(".nav-tabs");
+  if (!nav) {
+    return;
+  }
+
+  let csiLink = nav.querySelector('a[href="/csi"]');
+  if (!csiLink) {
+    csiLink = document.createElement("a");
+    csiLink.className = "nav-tab";
+    csiLink.href = "/csi";
+    csiLink.textContent = "ЧСИ";
+    nav.appendChild(csiLink);
+  }
+
+  const activeHref = APP_PAGE === "incoming" ? "/incoming-correspondence" : APP_PAGE === "csi" ? "/csi" : "/";
+  nav.querySelectorAll(".nav-tab").forEach((link) => {
+    link.classList.toggle("active", link.getAttribute("href") === activeHref);
+  });
 }
 
 function bindEvents() {

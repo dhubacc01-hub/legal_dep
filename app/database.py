@@ -194,6 +194,7 @@ def init_db() -> None:
         ensure_column(connection, "debtors", "contract_total_amount", "REAL")
         ensure_column(connection, "debtors", "contract_advance_amount", "REAL")
         ensure_column(connection, "debtors", "country", "TEXT NOT NULL DEFAULT 'kz'")
+        ensure_column(connection, "debtors", "csi_transferred_at", "TEXT")
         ensure_column(connection, "debtors", "lawsuit_installment_from", "TEXT")
         ensure_column(connection, "debtors", "lawsuit_installment_to", "TEXT")
         ensure_column(connection, "debtors", "lawsuit_monthly_payment_amount", "REAL")
