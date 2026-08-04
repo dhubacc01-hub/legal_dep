@@ -125,6 +125,21 @@ class DebtorView(BaseModel):
     is_hearing_overdue_without_decision: bool
 
 
+class DebtorReceivedPaymentItem(BaseModel):
+    payment_date: date | None = None
+    amount: float = Field(gt=0)
+    legacy: bool = False
+
+
+class DebtorReceivedPaymentsUpdateRequest(BaseModel):
+    payments: list[DebtorReceivedPaymentItem] = Field(default_factory=list)
+
+
+class CsiExportPdfRequest(BaseModel):
+    date_from: date
+    date_to: date
+
+
 class ImportPreviewRequest(BaseModel):
     path: str = Field(min_length=1, max_length=2048)
 

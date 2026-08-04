@@ -111,9 +111,11 @@ from app.schemas import (
     AuthMeResponse,
     ChangePasswordRequest,
     ClaimPdfGenerateRequest,
+    CsiExportPdfRequest,
     CourtCreate,
     CrmDebtorLookupResponse,
     DebtorCreate,
+    DebtorReceivedPaymentsUpdateRequest,
     DebtorUpdate,
     ImportApplyRequest,
     ImportPreviewRequest,
@@ -1647,6 +1649,222 @@ def serialize_debtor(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def list_debtor_received_payments(connection: sqlite3.Connection, debtor_row: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = [
+        dict(row)
+        for row in connection.execute(
+            """
+            SELECT id, debtor_id, payment_date, amount, created_at
+            FROM debtor_received_payments
+            WHERE debtor_id = ?
+            ORDER BY CASE WHEN payment_date = '' THEN 1 ELSE 0 END, payment_date ASC, id ASC
+            """,
+            (int(debtor_row["id"]),),
+        ).fetchall()
+    ]
+
+    if not rows and parse_float(debtor_row.get("received_amount")) > 0:
+        return [
+            {
+                "payment_date": None,
+                "payment_date_iso": None,
+                "amount": parse_float(debtor_row.get("received_amount")),
+                "legacy": True,
+                "persisted": True,
+            }
+        ]
+
+    serialized: list[dict[str, Any]] = []
+    for row in rows:
+        payment_date = parse_date_value(row.get("payment_date"))
+        serialized.append(
+            {
+                "payment_date": format_date(payment_date) if payment_date else None,
+                "payment_date_iso": payment_date.isoformat() if payment_date else None,
+                "amount": parse_float(row.get("amount")),
+                "legacy": not bool(str(row.get("payment_date") or "").strip()),
+                "persisted": True,
+            }
+        )
+    return serialized
+
+
+def build_csi_export_output_path(country: str, date_from: date, date_to: date) -> Path:
+    GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return GENERATED_DIR / f"csi_export_{country}_{date_from.isoformat()}_{date_to.isoformat()}_{timestamp}.pdf"
+
+
+def collect_csi_export_rows(
+    connection: sqlite3.Connection,
+    *,
+    country: str,
+    date_from: date,
+    date_to: date,
+) -> tuple[list[dict[str, Any]], float]:
+    rows = connection.execute(
+        """
+        SELECT
+            d.id AS debtor_id,
+            d.client_name,
+            d.contract_number,
+            p.payment_date,
+            p.amount
+        FROM debtor_received_payments p
+        JOIN debtors d ON d.id = p.debtor_id
+        WHERE COALESCE(d.country, ?) = ?
+          AND d.csi_transferred_at IS NOT NULL
+          AND COALESCE(NULLIF(TRIM(p.payment_date), ''), '') <> ''
+          AND p.payment_date >= ?
+          AND p.payment_date <= ?
+        ORDER BY p.payment_date ASC, d.client_name COLLATE NOCASE ASC, d.id ASC, p.id ASC
+        """,
+        (DEFAULT_COUNTRY, country, date_from.isoformat(), date_to.isoformat()),
+    ).fetchall()
+
+    grouped: dict[int, dict[str, Any]] = {}
+    total_amount = 0.0
+    for row in rows:
+        debtor_id = int(row["debtor_id"])
+        entry = grouped.setdefault(
+            debtor_id,
+            {
+                "client_name": str(row["client_name"] or "").strip(),
+                "contract_number": str(row["contract_number"] or "").strip(),
+                "amounts": [],
+                "dates": [],
+            },
+        )
+        amount = parse_float(row["amount"])
+        payment_date = parse_date_value(row["payment_date"])
+        entry["amounts"].append(format_money(amount))
+        entry["dates"].append(format_date(payment_date) if payment_date else "")
+        total_amount += amount
+
+    return list(grouped.values()), round(total_amount, 2)
+
+
+def render_csi_export_pdf(country: str, date_from: date, date_to: date, rows: list[dict[str, Any]], total_amount: float) -> Path:
+    pdf_path = build_csi_export_output_path(country, date_from, date_to)
+    page_width = 1240
+    page_height = 1754
+    margin_left = 70
+    margin_right = 70
+    margin_top = 80
+    margin_bottom = 80
+    table_width = page_width - margin_left - margin_right
+
+    title_font = load_font(28, bold=True)
+    meta_font = load_font(20)
+    header_font = load_font(18, bold=True)
+    body_font = load_font(18)
+    total_font = load_font(20, bold=True)
+
+    column_widths = [340, 220, 280, 260]
+    col_x: list[int] = [margin_left]
+    for width in column_widths[:-1]:
+        col_x.append(col_x[-1] + width)
+
+    pages: list[Image.Image] = []
+
+    def create_page() -> tuple[Image.Image, ImageDraw.ImageDraw, int]:
+        image = Image.new("RGB", (page_width, page_height), "white")
+        draw = ImageDraw.Draw(image)
+        y = margin_top
+        draw.text((margin_left, y), "Отчет ЧСИ", fill="#111111", font=title_font)
+        y += 46
+        draw.text(
+            (margin_left, y),
+            f"Период: {format_date(date_from)} - {format_date(date_to)}    Страна: {country.upper()}",
+            fill="#111111",
+            font=meta_font,
+        )
+        y += 42
+        return image, draw, y
+
+    def draw_table_header(draw: ImageDraw.ImageDraw, y: int) -> int:
+        header_height = 52
+        headers = ["ФИО клиента", "Номер договора", "Получено (тг)", "Дата получения"]
+        x = margin_left
+        for index, header in enumerate(headers):
+            width = column_widths[index]
+            draw.rectangle((x, y, x + width, y + header_height), outline="#111111", width=2)
+            draw.text((x + 8, y + 16), header, fill="#111111", font=header_font)
+            x += width
+        return y + header_height
+
+    def draw_row(draw: ImageDraw.ImageDraw, row: dict[str, Any], y: int) -> int:
+        cell_padding = 8
+        line_bbox = draw.textbbox((0, 0), "Ag", font=body_font)
+        line_height = (line_bbox[3] - line_bbox[1]) + 6
+        cell_texts = [
+            [row["client_name"] or ""],
+            wrap_text(draw, row["contract_number"] or "", body_font, column_widths[1] - cell_padding * 2),
+            [str(item) for item in (row["amounts"] or [])] or [""],
+            [str(item) for item in (row["dates"] or [])] or [""],
+        ]
+        row_height = max(len(lines) for lines in cell_texts) * line_height + cell_padding * 2
+
+        x = margin_left
+        for index, lines in enumerate(cell_texts):
+            width = column_widths[index]
+            draw.rectangle((x, y, x + width, y + row_height), outline="#111111", width=1)
+            text_y = y + cell_padding
+            for line in lines:
+                draw.text((x + cell_padding, text_y), line, fill="#111111", font=body_font)
+                text_y += line_height
+            x += width
+        return y + row_height
+
+    current_page, current_draw, current_y = create_page()
+    current_y = draw_table_header(current_draw, current_y)
+    max_y = page_height - margin_bottom - 80
+
+    printable_rows = rows or [
+        {
+            "client_name": "Нет данных за выбранный период",
+            "contract_number": "",
+            "amounts": [""],
+            "dates": [""],
+        }
+    ]
+
+    for row in printable_rows:
+        probe_bbox = current_draw.textbbox((0, 0), "Ag", font=body_font)
+        probe_height = (probe_bbox[3] - probe_bbox[1]) + 6
+        estimated_lines = max(
+            1,
+            len(wrap_text(current_draw, row["contract_number"] or "", body_font, column_widths[1] - 16)),
+            len(row.get("amounts") or [""]),
+            len(row.get("dates") or [""]),
+        )
+        estimated_height = estimated_lines * probe_height + 16
+        if current_y + estimated_height > max_y:
+            pages.append(current_page)
+            current_page, current_draw, current_y = create_page()
+            current_y = draw_table_header(current_draw, current_y)
+        current_y = draw_row(current_draw, row, current_y)
+
+    if current_y + 60 > page_height - margin_bottom:
+        pages.append(current_page)
+        current_page, current_draw, current_y = create_page()
+
+    current_draw.text(
+        (margin_left, current_y + 22),
+        f"Итоговая сумма за период: {format_money(total_amount)}",
+        fill="#111111",
+        font=total_font,
+    )
+    pages.append(current_page)
+
+    first_page, *other_pages = pages
+    if other_pages:
+        first_page.save(pdf_path, "PDF", resolution=150.0, save_all=True, append_images=other_pages)
+    else:
+        first_page.save(pdf_path, "PDF", resolution=150.0)
+    return pdf_path
+
+
 def serialize_incoming_correspondence(row: dict[str, Any]) -> dict[str, Any]:
     received_date = parse_date_value(row.get("received_date"))
     response_date = parse_date_value(row.get("response_date"))
@@ -2704,6 +2922,108 @@ def list_csi_debtors(
     mark_return_rework_children(rows)
     ordered_rows = order_debtors(rows)
     return [serialize_debtor(row) for row in ordered_rows]
+
+
+@app.get("/api/debtors/{debtor_id}/received-payments")
+def get_debtor_received_payments(
+    debtor_id: int,
+    _user: dict[str, Any] = Depends(require_app_user),
+) -> dict[str, Any]:
+    with get_connection() as connection:
+        debtor_row = connection.execute("SELECT * FROM debtors WHERE id = ?", (debtor_id,)).fetchone()
+        if debtor_row is None:
+            raise HTTPException(status_code=404, detail="Р—Р°РїРёСЃСЊ РЅРµ РЅР°Р№РґРµРЅР°.")
+
+        debtor = dict(debtor_row)
+        payments = list_debtor_received_payments(connection, debtor)
+
+    return {
+        "debtor_id": debtor_id,
+        "total_amount": parse_float(debtor.get("received_amount")),
+        "payments": payments,
+    }
+
+
+@app.put("/api/debtors/{debtor_id}/received-payments")
+def update_debtor_received_payments(
+    debtor_id: int,
+    payload: DebtorReceivedPaymentsUpdateRequest,
+    _user: dict[str, Any] = Depends(require_app_user),
+) -> dict[str, Any]:
+    created_at = datetime.now().replace(microsecond=0).isoformat()
+
+    with get_connection() as connection:
+        debtor_row = connection.execute("SELECT * FROM debtors WHERE id = ?", (debtor_id,)).fetchone()
+        if debtor_row is None:
+            raise HTTPException(status_code=404, detail="Р—Р°РїРёСЃСЊ РЅРµ РЅР°Р№РґРµРЅР°.")
+
+        debtor = dict(debtor_row)
+        if payload.payments and parse_float(debtor.get("decision_payout")) <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="РќРµР»СЊР·СЏ Р·Р°С„РёРєСЃРёСЂРѕРІР°С‚СЊ РїРѕР»СѓС‡РµРЅРЅСѓСЋ СЃСѓРјРјСѓ Р±РµР· СЃСѓРјРјС‹ РІС‹РїР»Р°С‚С‹ РїРѕ СЂРµС€РµРЅРёСЋ.",
+            )
+
+        normalized_payments: list[tuple[str, float]] = []
+        for item in payload.payments:
+            amount = round(float(item.amount), 2)
+            if amount <= 0:
+                raise HTTPException(status_code=400, detail="РЎСѓРјРјР° РїР»Р°С‚РµР¶Р° РґРѕР»Р¶РЅР° Р±С‹С‚СЊ Р±РѕР»СЊС€Рµ РЅСѓР»СЏ.")
+            if not item.legacy and item.payment_date is None:
+                raise HTTPException(status_code=400, detail="РЈРєР°Р¶РёС‚Рµ РґР°С‚Сѓ РїР»Р°С‚РµР¶Р°.")
+            normalized_payments.append((item.payment_date.isoformat() if item.payment_date else "", amount))
+
+        connection.execute("DELETE FROM debtor_received_payments WHERE debtor_id = ?", (debtor_id,))
+        for payment_date, amount in normalized_payments:
+            connection.execute(
+                """
+                INSERT INTO debtor_received_payments (debtor_id, payment_date, amount, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (debtor_id, payment_date, amount, created_at),
+            )
+
+        total_amount = round(sum(amount for _, amount in normalized_payments), 2)
+        connection.execute(
+            "UPDATE debtors SET received_amount = ? WHERE id = ?",
+            (total_amount, debtor_id),
+        )
+        updated_debtor_row = connection.execute("SELECT * FROM debtors WHERE id = ?", (debtor_id,)).fetchone()
+        connection.commit()
+
+        updated_debtor = dict(updated_debtor_row)
+        payments = list_debtor_received_payments(connection, updated_debtor)
+
+    return {
+        "debtor_id": debtor_id,
+        "total_amount": parse_float(updated_debtor.get("received_amount")),
+        "payments": payments,
+    }
+
+
+@app.post("/api/csi/export-pdf")
+def export_csi_pdf(
+    payload: CsiExportPdfRequest,
+    country: str = DEFAULT_COUNTRY,
+    _user: dict[str, Any] = Depends(require_app_user),
+) -> FileResponse:
+    normalized_country = normalize_country_code(country)
+    date_from = payload.date_from
+    date_to = payload.date_to
+    if date_to < date_from:
+        raise HTTPException(status_code=400, detail="Дата окончания не может быть раньше даты начала.")
+
+    with get_connection() as connection:
+        rows, total_amount = collect_csi_export_rows(
+            connection,
+            country=normalized_country,
+            date_from=date_from,
+            date_to=date_to,
+        )
+
+    pdf_path = render_csi_export_pdf(normalized_country, date_from, date_to, rows, total_amount)
+    filename = f"csi_export_{normalized_country}_{date_from.isoformat()}_{date_to.isoformat()}.pdf"
+    return FileResponse(pdf_path, media_type="application/pdf", filename=filename)
 
 
 @app.get("/api/incoming-correspondence")

@@ -180,6 +180,18 @@ def init_db() -> None:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS debtor_received_payments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                debtor_id INTEGER NOT NULL,
+                payment_date TEXT NOT NULL DEFAULT '',
+                amount REAL NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT '',
+                FOREIGN KEY(debtor_id) REFERENCES debtors(id)
+            )
+            """
+        )
         ensure_column(connection, "debtors", "parent_debtor_id", "INTEGER")
         ensure_column(connection, "debtors", "imported_claim_sent_days", "INTEGER")
         ensure_column(connection, "debtors", "imported_debt_days", "INTEGER")
@@ -267,6 +279,9 @@ def init_db() -> None:
         )
         connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_incoming_correspondence_country_received_date ON incoming_correspondence(country, received_date DESC, id DESC)"
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_debtor_received_payments_debtor_id ON debtor_received_payments(debtor_id)"
         )
 
 

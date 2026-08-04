@@ -5,6 +5,8 @@
   deleteTargetId: null,
   claimTargetId: null,
   lawsuitTargetId: null,
+  receivedPaymentsTargetId: null,
+  receivedPaymentsDrafts: [],
   lastCreatedCourt: null,
   currentPage: 1,
   currentLanguage: "ru",
@@ -659,7 +661,10 @@ const claimModalBackdrop = document.getElementById("claim-modal-backdrop");
 const lawsuitModalBackdrop = document.getElementById("lawsuit-modal-backdrop");
 const accountModalBackdrop = document.getElementById("account-modal-backdrop");
 const forcePasswordModalBackdrop = document.getElementById("force-password-modal-backdrop");
+const receivedPaymentsModalBackdrop = document.getElementById("received-payments-modal-backdrop");
+const csiExportModalBackdrop = document.getElementById("csi-export-modal-backdrop");
 const openModalButton = document.getElementById("open-create-modal");
+const actionsBar = document.querySelector(".actions-bar");
 const topbarActions = document.querySelector(".topbar-actions");
 const countrySelect = document.getElementById("country-select");
 const ownerButton = document.getElementById("owner-button");
@@ -700,6 +705,18 @@ const lawsuitProductsList = document.getElementById("lawsuit-products-list");
 const claimAddProductButton = document.getElementById("claim-add-product");
 const lawsuitAddProductButton = document.getElementById("lawsuit-add-product");
 const closeAccountModalButton = document.getElementById("close-account-modal");
+const closeReceivedPaymentsModalButton = document.getElementById("close-received-payments-modal");
+const cancelReceivedPaymentsModalButton = document.getElementById("cancel-received-payments-modal");
+const saveReceivedPaymentsButton = document.getElementById("save-received-payments-button");
+const addReceivedPaymentRowButton = document.getElementById("add-received-payment-row");
+const receivedPaymentsList = document.getElementById("received-payments-list");
+const receivedPaymentsStatus = document.getElementById("received-payments-status");
+const closeCsiExportModalButton = document.getElementById("close-csi-export-modal");
+const cancelCsiExportModalButton = document.getElementById("cancel-csi-export-modal");
+const confirmCsiExportButton = document.getElementById("confirm-csi-export-button");
+const csiExportDateFromInput = document.getElementById("csi-export-date-from");
+const csiExportDateToInput = document.getElementById("csi-export-date-to");
+const csiExportStatus = document.getElementById("csi-export-status");
 const changePasswordForm = document.getElementById("change-password-form");
 const forcePasswordForm = document.getElementById("force-password-form");
 const createUserForm = document.getElementById("create-user-form");
@@ -1145,10 +1162,11 @@ async function initAppData() {
 document.addEventListener("DOMContentLoaded", async () => {
   ensureLanguageControls();
   syncPrimaryNavigation();
+  ensureCsiExportAction();
   state.currentLanguage = window.localStorage.getItem(LANGUAGE_STORAGE_KEY) || "ru";
   state.currentCountry = window.localStorage.getItem(COUNTRY_STORAGE_KEY) || "kz";
   if (state.appPage === "csi") {
-    openModalButton?.closest(".actions-bar")?.classList.add("hidden");
+    openModalButton?.closest(".actions-bar")?.classList.remove("hidden");
   }
   document.getElementById("country-select").value = state.currentCountry;
   document.getElementById("language-select").value = state.currentLanguage;
@@ -1286,6 +1304,25 @@ function bindEvents() {
   document.addEventListener("blur", handleDateBlur, true);
   document.addEventListener("click", handleGlobalFilterClick);
   document.addEventListener("keydown", handleGlobalFilterKeydown);
+  closeReceivedPaymentsModalButton?.addEventListener("click", closeReceivedPaymentsModal);
+  cancelReceivedPaymentsModalButton?.addEventListener("click", closeReceivedPaymentsModal);
+  saveReceivedPaymentsButton?.addEventListener("click", handleReceivedPaymentsSave);
+  addReceivedPaymentRowButton?.addEventListener("click", appendReceivedPaymentDraftRow);
+  receivedPaymentsList?.addEventListener("click", handleReceivedPaymentsListClick);
+  receivedPaymentsModalBackdrop?.addEventListener("click", (event) => {
+    if (event.target === receivedPaymentsModalBackdrop) {
+      closeReceivedPaymentsModal();
+    }
+  });
+  document.getElementById("open-csi-export-modal")?.addEventListener("click", openCsiExportModal);
+  closeCsiExportModalButton?.addEventListener("click", closeCsiExportModal);
+  cancelCsiExportModalButton?.addEventListener("click", closeCsiExportModal);
+  confirmCsiExportButton?.addEventListener("click", handleCsiExportSubmit);
+  csiExportModalBackdrop?.addEventListener("click", (event) => {
+    if (event.target === csiExportModalBackdrop) {
+      closeCsiExportModal();
+    }
+  });
   closeAccountModalButton?.addEventListener("click", closeAccountModal);
   accountModalBackdrop?.addEventListener("click", (event) => {
     if (event.target === accountModalBackdrop) {
@@ -1728,6 +1765,23 @@ function syncPrimaryNavigation() {
   nav.querySelectorAll(".nav-tab").forEach((link) => {
     link.classList.toggle("active", link.getAttribute("href") === activeHref);
   });
+}
+
+function ensureCsiExportAction() {
+  if (state.appPage !== "csi" || !actionsBar) {
+    return;
+  }
+  actionsBar.classList.remove("hidden");
+  let button = document.getElementById("open-csi-export-modal");
+  if (!button) {
+    actionsBar.innerHTML = "";
+    button = document.createElement("button");
+    button.id = "open-csi-export-modal";
+    button.type = "button";
+    button.className = "primary-button";
+    actionsBar.appendChild(button);
+  }
+  button.textContent = "Экспорт PDF";
 }
 
 function initFilters() {
@@ -2836,9 +2890,8 @@ function renderLawsuitAndDecisionCells(debtor, { isChild = false } = {}) {
 }
 
 function renderCaseCells(debtor) {
-  const receivedAmountDisabled = !(Number(debtor.decision_payout || 0) > 0);
   return `
-    <td>${renderNumberInput(debtor, "received_amount", debtor.received_amount, receivedAmountDisabled)}</td>
+    <td>${renderReceivedAmountButton(debtor)}</td>
     <td class="cell-comment">${renderTextarea(debtor, "comment")}</td>
     <td>${renderTextInput(debtor, "case_number")}</td>
   `;
@@ -2972,6 +3025,19 @@ function renderNumberInput(debtor, field, value, disabled = false) {
   `;
 }
 
+function renderReceivedAmountButton(debtor) {
+  return `
+    <button
+      class="secondary-button compact-button received-amount-button"
+      type="button"
+      data-received-payments-button="true"
+      data-id="${debtor.id}"
+    >
+      ${escapeHtml(formatMoney(debtor.received_amount))}
+    </button>
+  `;
+}
+
 function renderTextInput(debtor, field) {
   return `
     <input
@@ -2996,6 +3062,12 @@ function renderTextarea(debtor, field) {
 }
 
 function handleTableClick(event) {
+  const receivedPaymentsButton = event.target.closest("[data-received-payments-button]");
+  if (receivedPaymentsButton) {
+    openReceivedPaymentsModal(Number(receivedPaymentsButton.dataset.id));
+    return;
+  }
+
   const claimButton = event.target.closest(".claim-document-button");
   if (claimButton) {
     openClaimModal(Number(claimButton.dataset.id));
@@ -3079,6 +3151,269 @@ function getInlineValue(element, field) {
   }
 
   return element.value.trim() || null;
+}
+
+function formatReceivedPaymentDate(isoValue) {
+  return formatDisplayDate(isoValue) ?? "—";
+}
+
+function getDebtorById(debtorId) {
+  return state.debtors.find((item) => item.id === debtorId) ?? null;
+}
+
+function renderReceivedPaymentsList() {
+  if (!receivedPaymentsList) {
+    return;
+  }
+
+  if (!state.receivedPaymentsDrafts.length) {
+    receivedPaymentsList.innerHTML = `
+      <div class="received-payment-row is-static">
+        <div class="received-payment-value">—</div>
+        <div class="received-payment-value">0,00</div>
+        <button class="danger-button received-payment-remove" type="button" disabled>&times;</button>
+      </div>
+    `;
+    return;
+  }
+
+  receivedPaymentsList.innerHTML = state.receivedPaymentsDrafts
+    .map((item, index) => {
+      if (item.persisted || item.confirmed) {
+        return `
+          <div class="received-payment-row is-static" data-payment-index="${index}">
+            <div class="received-payment-value">${escapeHtml(formatReceivedPaymentDate(item.payment_date_iso))}</div>
+            <div class="received-payment-value">${escapeHtml(formatMoney(item.amount))}</div>
+            <button class="danger-button received-payment-remove" type="button" data-payment-remove="${index}">&times;</button>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="received-payment-row" data-payment-index="${index}">
+          <input
+            class="cell-editor date-input"
+            data-payment-date="${index}"
+            type="text"
+            placeholder="дд.мм.гггг"
+            autocomplete="off"
+            value="${escapeHtmlAttribute(formatDisplayDate(item.payment_date_iso) ?? "")}"
+          />
+          <input
+            class="cell-editor cell-number"
+            data-payment-amount="${index}"
+            type="number"
+            min="0.01"
+            step="0.01"
+            value="${item.amount ?? ""}"
+          />
+          <button class="received-payment-confirm" type="button" data-payment-confirm="${index}">&#10003;</button>
+          <button class="danger-button received-payment-remove" type="button" data-payment-remove="${index}">&times;</button>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function closeReceivedPaymentsModal() {
+  state.receivedPaymentsTargetId = null;
+  state.receivedPaymentsDrafts = [];
+  setInlineStatus(receivedPaymentsStatus, "");
+  receivedPaymentsModalBackdrop?.classList.add("hidden");
+}
+
+async function openReceivedPaymentsModal(debtorId) {
+  const debtor = getDebtorById(debtorId);
+  const canAddPayments = Number(debtor?.decision_payout || 0) > 0;
+  state.receivedPaymentsTargetId = debtorId;
+  state.receivedPaymentsDrafts = [];
+  setInlineStatus(receivedPaymentsStatus, "Загрузка истории оплат...", "loading");
+  receivedPaymentsModalBackdrop?.classList.remove("hidden");
+  if (addReceivedPaymentRowButton) {
+    addReceivedPaymentRowButton.disabled = !canAddPayments;
+  }
+
+  try {
+    const response = await fetch(`/api/debtors/${debtorId}/received-payments`);
+    if (!response.ok) {
+      throw new Error(`RECEIVED_PAYMENTS_HTTP_${response.status}`);
+    }
+    const payload = await response.json();
+    state.receivedPaymentsDrafts = (payload.payments || []).map((item) => ({
+      payment_date_iso: item.payment_date_iso || null,
+      amount: Number(item.amount || 0),
+      legacy: Boolean(item.legacy),
+      persisted: true,
+      confirmed: true,
+    }));
+    renderReceivedPaymentsList();
+    if (!state.receivedPaymentsDrafts.length) {
+      setInlineStatus(receivedPaymentsStatus, "Нет истории оплат.", "success");
+    } else {
+      setInlineStatus(
+        receivedPaymentsStatus,
+        canAddPayments ? "" : "Добавление платежей доступно после заполнения суммы выплаты по решению.",
+        canAddPayments ? "success" : "error",
+      );
+    }
+  } catch (error) {
+    console.error(error);
+    receivedPaymentsList.innerHTML = "";
+    setInlineStatus(receivedPaymentsStatus, "Не удалось загрузить историю оплат.");
+  }
+}
+
+function appendReceivedPaymentDraftRow() {
+  const debtor = getDebtorById(state.receivedPaymentsTargetId);
+  if (!(Number(debtor?.decision_payout || 0) > 0)) {
+    setInlineStatus(receivedPaymentsStatus, "Сначала заполните сумму выплаты по решению.");
+    return;
+  }
+  state.receivedPaymentsDrafts.push({
+    payment_date_iso: null,
+    amount: "",
+    legacy: false,
+    persisted: false,
+    confirmed: false,
+  });
+  renderReceivedPaymentsList();
+}
+
+function handleReceivedPaymentsListClick(event) {
+  const confirmButton = event.target.closest("[data-payment-confirm]");
+  if (confirmButton) {
+    const index = Number(confirmButton.dataset.paymentConfirm);
+    const row = confirmButton.closest("[data-payment-index]");
+    const dateInput = row?.querySelector(`[data-payment-date="${index}"]`);
+    const amountInput = row?.querySelector(`[data-payment-amount="${index}"]`);
+    const paymentDateIso = parseDisplayDateValue(dateInput?.value ?? "");
+    const amountValue = Number(amountInput?.value ?? 0);
+
+    if (!paymentDateIso) {
+      alert("Укажите дату платежа.");
+      dateInput?.focus();
+      return;
+    }
+    if (!(amountValue > 0)) {
+      alert("Укажите сумму платежа больше нуля.");
+      amountInput?.focus();
+      return;
+    }
+
+    state.receivedPaymentsDrafts[index] = {
+      payment_date_iso: paymentDateIso,
+      amount: amountValue,
+      legacy: false,
+      persisted: false,
+      confirmed: true,
+    };
+    renderReceivedPaymentsList();
+    return;
+  }
+
+  const removeButton = event.target.closest("[data-payment-remove]");
+  if (removeButton) {
+    const index = Number(removeButton.dataset.paymentRemove);
+    state.receivedPaymentsDrafts.splice(index, 1);
+    renderReceivedPaymentsList();
+  }
+}
+
+async function handleReceivedPaymentsSave() {
+  if (!state.receivedPaymentsTargetId) {
+    return;
+  }
+
+  const hasUnconfirmedDrafts = state.receivedPaymentsDrafts.some((item) => !item.persisted && !item.confirmed);
+  if (hasUnconfirmedDrafts) {
+    alert("Подтвердите галочкой или удалите все добавленные строки перед сохранением.");
+    return;
+  }
+
+  const payload = {
+    payments: state.receivedPaymentsDrafts.map((item) => ({
+      payment_date: item.payment_date_iso,
+      amount: Number(item.amount || 0),
+      legacy: Boolean(item.legacy),
+    })),
+  };
+
+  setInlineStatus(receivedPaymentsStatus, "Сохраняем историю оплат...", "loading");
+  saveReceivedPaymentsButton.disabled = true;
+
+  try {
+    const response = await fetch(`/api/debtors/${state.receivedPaymentsTargetId}/received-payments`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorPayload = await response.json().catch(() => ({}));
+      throw new Error(errorPayload.detail || `RECEIVED_PAYMENTS_SAVE_HTTP_${response.status}`);
+    }
+    setInlineStatus(receivedPaymentsStatus, "");
+    closeReceivedPaymentsModal();
+    await loadDebtors();
+  } catch (error) {
+    console.error(error);
+    setInlineStatus(receivedPaymentsStatus, error?.message || "Не удалось сохранить историю оплат.");
+  } finally {
+    saveReceivedPaymentsButton.disabled = false;
+  }
+}
+
+function openCsiExportModal() {
+  const todayIso = toIsoDateFromDate(new Date());
+  csiExportDateFromInput.value = formatDisplayDate(todayIso) ?? "";
+  csiExportDateToInput.value = formatDisplayDate(todayIso) ?? "";
+  setInlineStatus(csiExportStatus, "");
+  csiExportModalBackdrop?.classList.remove("hidden");
+}
+
+function closeCsiExportModal() {
+  setInlineStatus(csiExportStatus, "");
+  csiExportModalBackdrop?.classList.add("hidden");
+}
+
+async function handleCsiExportSubmit() {
+  const dateFrom = parseDisplayDateValue(csiExportDateFromInput?.value ?? "");
+  const dateTo = parseDisplayDateValue(csiExportDateToInput?.value ?? "");
+
+  if (!dateFrom || !dateTo) {
+    setInlineStatus(csiExportStatus, "Укажите обе даты периода.");
+    return;
+  }
+
+  setInlineStatus(csiExportStatus, "Готовим PDF...", "loading");
+  confirmCsiExportButton.disabled = true;
+
+  try {
+    const response = await fetch(`/api/csi/export-pdf?country=${encodeURIComponent(state.currentCountry)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date_from: dateFrom, date_to: dateTo }),
+    });
+    if (!response.ok) {
+      const errorPayload = await response.json().catch(() => ({}));
+      throw new Error(errorPayload.detail || `CSI_EXPORT_HTTP_${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const fileUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = fileUrl;
+    link.download = `csi_export_${state.currentCountry}_${dateFrom}_${dateTo}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(fileUrl), 60_000);
+    closeCsiExportModal();
+  } catch (error) {
+    console.error(error);
+    setInlineStatus(csiExportStatus, error?.message || "Не удалось сформировать PDF.");
+  } finally {
+    confirmCsiExportButton.disabled = false;
+  }
 }
 
 function openCreateModal() {
@@ -3433,6 +3768,12 @@ function renderDocumentCells(debtor) {
 }
 
 function handleTableClick(event) {
+  const receivedPaymentsButton = event.target.closest("[data-received-payments-button]");
+  if (receivedPaymentsButton) {
+    openReceivedPaymentsModal(Number(receivedPaymentsButton.dataset.id));
+    return;
+  }
+
   const claimButton = event.target.closest(".claim-document-button");
   if (claimButton) {
     openClaimModal(Number(claimButton.dataset.id));

@@ -67,6 +67,7 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  min-height: 56px;
   padding: 10px 20px;
   border-bottom: 1px solid var(--line);
   background: rgba(7, 14, 24, 0.7);
@@ -135,12 +136,12 @@ h3 {
 }
 
 .topbar-select-wrap {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  align-items: center;
 }
 
 .topbar-select-label {
-  text-align: right;
+  display: none;
 }
 
 .topbar-select {
@@ -896,6 +897,79 @@ tbody tr:hover .sticky-col {
   font-size: 14px;
   font-weight: 700;
   line-height: 1;
+}
+
+.received-amount-button {
+  min-width: 110px;
+}
+
+.modal-received-payments {
+  width: min(640px, 100%);
+}
+
+.received-payments-list {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.received-payment-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(9, 17, 31, 0.7);
+}
+
+.received-payment-row.is-static {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+
+.received-payment-value {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(58, 78, 115, 0.8);
+  background: rgba(16, 27, 44, 0.82);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.received-payment-row .date-input,
+.received-payment-row input[type="number"] {
+  min-height: 38px;
+}
+
+.received-payment-confirm,
+.received-payment-remove {
+  min-width: 38px;
+  min-height: 38px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.received-payment-confirm {
+  background: linear-gradient(180deg, rgba(28, 181, 94, 0.96), rgba(20, 138, 79, 0.92));
+  border-color: rgba(74, 222, 128, 0.5);
+  color: #ffffff;
+}
+
+.received-payment-remove {
+  background: linear-gradient(180deg, rgba(120, 28, 28, 0.96), rgba(95, 20, 20, 0.92));
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #ffffff;
+}
+
+.received-payments-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 10px;
 }
 
 

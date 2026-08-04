@@ -497,6 +497,79 @@
       </div>
     </div>
 
+    <div class="modal-backdrop hidden" id="received-payments-modal-backdrop">
+      <div class="modal modal-small modal-received-payments" role="dialog" aria-modal="true" aria-labelledby="received-payments-modal-title">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">История оплат</p>
+            <h3 id="received-payments-modal-title">Получено</h3>
+          </div>
+          <button class="icon-button" id="close-received-payments-modal" type="button" aria-label="Закрыть">
+            &times;
+          </button>
+        </div>
+
+        <div class="modal-inline-status hidden" id="received-payments-status" aria-live="polite"></div>
+        <div class="received-payments-list" id="received-payments-list"></div>
+
+        <div class="received-payments-actions">
+          <button class="secondary-button" id="add-received-payment-row" type="button">Добавить платеж</button>
+        </div>
+
+        <div class="modal-actions">
+          <button class="secondary-button" id="cancel-received-payments-modal" type="button">Отмена</button>
+          <button class="primary-button" id="save-received-payments-button" type="button">Сохранить</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="csi-export-modal-backdrop">
+      <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="csi-export-modal-title">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Экспорт ЧСИ</p>
+            <h3 id="csi-export-modal-title">Экспорт PDF</h3>
+          </div>
+          <button class="icon-button" id="close-csi-export-modal" type="button" aria-label="Закрыть">
+            &times;
+          </button>
+        </div>
+
+        <div class="modal-inline-status hidden" id="csi-export-status" aria-live="polite"></div>
+
+        <div class="modal-form">
+          <label>
+            <span>Дата с</span>
+            <input
+              id="csi-export-date-from"
+              type="text"
+              class="modal-date-input date-input"
+              data-date-input="true"
+              placeholder="дд.мм.гггг"
+              autocomplete="off"
+            />
+          </label>
+
+          <label>
+            <span>Дата по</span>
+            <input
+              id="csi-export-date-to"
+              type="text"
+              class="modal-date-input date-input"
+              data-date-input="true"
+              placeholder="дд.мм.гггг"
+              autocomplete="off"
+            />
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button class="secondary-button" id="cancel-csi-export-modal" type="button">Отмена</button>
+          <button class="primary-button" id="confirm-csi-export-button" type="button">Скачать PDF</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-backdrop hidden" id="force-password-modal-backdrop">
       <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="force-password-modal-title">
         <div class="modal-header">
