@@ -77,6 +77,9 @@ STATIC_COMPANY_REQUISITES: dict[str, dict[str, str]] = {
 }
 
 KZ_COMPANY_REQUISITES_OVERRIDES: dict[str, dict[str, str]] = {
+    normalize_company_key('ТОО «SMstore»'): {
+        "director_name": "Кәгіліков Нұрсұлтан Дәнешұлы",
+    },
     normalize_company_key('ТОО «Sap - store»'): {
         "company_block": "ТОО «Sap - store»\nКазахстан, город Алматы, Наурызбайский район, Микрорайон Шугыла, улица Сакен Жунисов, дом 2/22, корпус 3, н.п. 92, почтовый индекс 050035",
         "address": "Казахстан, город Алматы, Наурызбайский район, Микрорайон Шугыла, улица Сакен Жунисов, дом 2/22, корпус 3, н.п. 92, почтовый индекс 050035",
