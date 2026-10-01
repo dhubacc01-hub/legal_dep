@@ -2957,13 +2957,6 @@ def update_debtor_received_payments(
         if debtor_row is None:
             raise HTTPException(status_code=404, detail="Р—Р°РїРёСЃСЊ РЅРµ РЅР°Р№РґРµРЅР°.")
 
-        debtor = dict(debtor_row)
-        if payload.payments and parse_float(debtor.get("decision_payout")) <= 0:
-            raise HTTPException(
-                status_code=400,
-                detail="РќРµР»СЊР·СЏ Р·Р°С„РёРєСЃРёСЂРѕРІР°С‚СЊ РїРѕР»СѓС‡РµРЅРЅСѓСЋ СЃСѓРјРјСѓ Р±РµР· СЃСѓРјРјС‹ РІС‹РїР»Р°С‚С‹ РїРѕ СЂРµС€РµРЅРёСЋ.",
-            )
-
         normalized_payments: list[tuple[str, float]] = []
         for item in payload.payments:
             amount = round(float(item.amount), 2)

@@ -3223,14 +3223,12 @@ function closeReceivedPaymentsModal() {
 }
 
 async function openReceivedPaymentsModal(debtorId) {
-  const debtor = getDebtorById(debtorId);
-  const canAddPayments = Number(debtor?.decision_payout || 0) > 0;
   state.receivedPaymentsTargetId = debtorId;
   state.receivedPaymentsDrafts = [];
   setInlineStatus(receivedPaymentsStatus, "Загрузка истории оплат...", "loading");
   receivedPaymentsModalBackdrop?.classList.remove("hidden");
   if (addReceivedPaymentRowButton) {
-    addReceivedPaymentRowButton.disabled = !canAddPayments;
+    addReceivedPaymentRowButton.disabled = false;
   }
 
   try {
@@ -3250,11 +3248,7 @@ async function openReceivedPaymentsModal(debtorId) {
     if (!state.receivedPaymentsDrafts.length) {
       setInlineStatus(receivedPaymentsStatus, "Нет истории оплат.", "success");
     } else {
-      setInlineStatus(
-        receivedPaymentsStatus,
-        canAddPayments ? "" : "Добавление платежей доступно после заполнения суммы выплаты по решению.",
-        canAddPayments ? "success" : "error",
-      );
+      setInlineStatus(receivedPaymentsStatus, "");
     }
   } catch (error) {
     console.error(error);
@@ -3264,11 +3258,6 @@ async function openReceivedPaymentsModal(debtorId) {
 }
 
 function appendReceivedPaymentDraftRow() {
-  const debtor = getDebtorById(state.receivedPaymentsTargetId);
-  if (!(Number(debtor?.decision_payout || 0) > 0)) {
-    setInlineStatus(receivedPaymentsStatus, "Сначала заполните сумму выплаты по решению.");
-    return;
-  }
   state.receivedPaymentsDrafts.push({
     payment_date_iso: null,
     amount: "",
