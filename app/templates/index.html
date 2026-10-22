@@ -28,6 +28,9 @@
 
       <main class="content">
         <section class="actions-bar">
+          <button class="secondary-button" id="open-payment-report-modal" type="button">
+            Рапорт по выплатам
+          </button>
           <button class="primary-button" id="open-create-modal" type="button">
             Добавить должника
           </button>
@@ -566,6 +569,62 @@
         <div class="modal-actions">
           <button class="secondary-button" id="cancel-csi-export-modal" type="button">Отмена</button>
           <button class="primary-button" id="confirm-csi-export-button" type="button">Скачать PDF</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="payment-report-modal-backdrop">
+      <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="payment-report-modal-title">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Должники</p>
+            <h3 id="payment-report-modal-title">Рапорт по выплатам</h3>
+          </div>
+          <button class="icon-button" id="close-payment-report-modal" type="button" aria-label="Закрыть">
+            &times;
+          </button>
+        </div>
+
+        <div class="modal-inline-status hidden" id="payment-report-status" aria-live="polite"></div>
+
+        <div class="modal-form">
+          <label>
+            <span>Период</span>
+            <select id="payment-report-period">
+              <option value="current">Текущий месяц</option>
+              <option value="previous">Прошлый месяц</option>
+              <option value="custom">Другое</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Дата с</span>
+            <input
+              id="payment-report-date-from"
+              type="text"
+              class="modal-date-input date-input"
+              data-date-input="true"
+              placeholder="дд.мм.гггг"
+              autocomplete="off"
+            />
+          </label>
+
+          <label>
+            <span>Дата по</span>
+            <input
+              id="payment-report-date-to"
+              type="text"
+              class="modal-date-input date-input"
+              data-date-input="true"
+              placeholder="дд.мм.гггг"
+              autocomplete="off"
+            />
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button class="secondary-button" id="cancel-payment-report-modal" type="button">Отмена</button>
+          <button class="primary-button" id="confirm-payment-report-button" type="button">Скачать PDF</button>
         </div>
       </div>
     </div>

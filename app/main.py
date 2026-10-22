@@ -124,6 +124,7 @@ from app.schemas import (
     IncomingCorrespondenceUpdate,
     LawsuitPdfGenerateRequest,
     LoginRequest,
+    PaymentReportPdfRequest,
     UserCreateRequest,
     UserView,
 )
@@ -1865,6 +1866,165 @@ def render_csi_export_pdf(country: str, date_from: date, date_to: date, rows: li
     return pdf_path
 
 
+def build_payment_report_output_path(country: str, date_from: date, date_to: date) -> Path:
+    GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return GENERATED_DIR / f"payment_report_{country}_{date_from.isoformat()}_{date_to.isoformat()}_{timestamp}.pdf"
+
+
+def collect_payment_report_rows(
+    connection: sqlite3.Connection,
+    *,
+    country: str,
+    date_from: date,
+    date_to: date,
+) -> tuple[list[dict[str, Any]], float]:
+    rows = connection.execute(
+        """
+        SELECT
+            d.client_name,
+            d.contract_number,
+            p.payment_date,
+            p.amount
+        FROM debtor_received_payments p
+        JOIN debtors d ON d.id = p.debtor_id
+        WHERE COALESCE(d.country, ?) = ?
+          AND d.csi_transferred_at IS NULL
+          AND COALESCE(NULLIF(TRIM(p.payment_date), ''), '') <> ''
+          AND p.payment_date >= ?
+          AND p.payment_date <= ?
+        ORDER BY p.payment_date ASC, d.client_name COLLATE NOCASE ASC, d.id ASC, p.id ASC
+        """,
+        (DEFAULT_COUNTRY, country, date_from.isoformat(), date_to.isoformat()),
+    ).fetchall()
+
+    report_rows = [
+        {
+            "payment_date": format_date(parse_date_value(row["payment_date"])) or "",
+            "contract_number": str(row["contract_number"] or "").strip(),
+            "client_name": str(row["client_name"] or "").strip(),
+            "amount": parse_float(row["amount"]),
+        }
+        for row in rows
+    ]
+    return report_rows, round(sum(row["amount"] for row in report_rows), 2)
+
+
+def render_payment_report_pdf(
+    country: str,
+    date_from: date,
+    date_to: date,
+    rows: list[dict[str, Any]],
+    total_amount: float,
+) -> Path:
+    pdf_path = build_payment_report_output_path(country, date_from, date_to)
+    page_width = 1240
+    page_height = 1754
+    margin_left = 70
+    margin_right = 70
+    margin_top = 80
+    margin_bottom = 80
+    column_widths = [180, 280, 380, 260]
+
+    title_font = load_font(28, bold=True)
+    meta_font = load_font(20)
+    header_font = load_font(18, bold=True)
+    body_font = load_font(18)
+    total_font = load_font(20, bold=True)
+    pages: list[Image.Image] = []
+
+    def create_page() -> tuple[Image.Image, ImageDraw.ImageDraw, int]:
+        image = Image.new("RGB", (page_width, page_height), "white")
+        draw = ImageDraw.Draw(image)
+        y = margin_top
+        draw.text((margin_left, y), "Рапорт по выплатам", fill="#111111", font=title_font)
+        y += 46
+        draw.text(
+            (margin_left, y),
+            f"Период: {format_date(date_from)} - {format_date(date_to)}    Страна: {country.upper()}",
+            fill="#111111",
+            font=meta_font,
+        )
+        y += 32
+        draw.text(
+            (margin_left, y),
+            f"Поступлений: {len(rows)}    Общая сумма: {format_money(total_amount)}",
+            fill="#111111",
+            font=meta_font,
+        )
+        y += 46
+        return image, draw, y
+
+    def draw_table_header(draw: ImageDraw.ImageDraw, y: int) -> int:
+        header_height = 52
+        headers = ["Дата оплаты", "Номер договора клиента", "ФИО клиента", "Сумма"]
+        x = margin_left
+        for header, width in zip(headers, column_widths):
+            draw.rectangle((x, y, x + width, y + header_height), outline="#111111", width=2)
+            draw.text((x + 8, y + 16), header, fill="#111111", font=header_font)
+            x += width
+        return y + header_height
+
+    def row_lines(draw: ImageDraw.ImageDraw, row: dict[str, Any]) -> list[list[str]]:
+        cell_padding = 8
+        return [
+            wrap_text(draw, row["payment_date"] or "", body_font, column_widths[0] - cell_padding * 2),
+            wrap_text(draw, row["contract_number"] or "", body_font, column_widths[1] - cell_padding * 2),
+            wrap_text(draw, row["client_name"] or "", body_font, column_widths[2] - cell_padding * 2),
+            wrap_text(draw, format_money(row["amount"]), body_font, column_widths[3] - cell_padding * 2),
+        ]
+
+    def draw_row(draw: ImageDraw.ImageDraw, row: dict[str, Any], y: int) -> int:
+        cell_padding = 8
+        line_bbox = draw.textbbox((0, 0), "Ag", font=body_font)
+        line_height = (line_bbox[3] - line_bbox[1]) + 6
+        cell_texts = row_lines(draw, row)
+        row_height = max(max(len(lines), 1) for lines in cell_texts) * line_height + cell_padding * 2
+        x = margin_left
+        for width, lines in zip(column_widths, cell_texts):
+            draw.rectangle((x, y, x + width, y + row_height), outline="#111111", width=1)
+            text_y = y + cell_padding
+            for line in lines or [""]:
+                draw.text((x + cell_padding, text_y), line, fill="#111111", font=body_font)
+                text_y += line_height
+            x += width
+        return y + row_height
+
+    current_page, current_draw, current_y = create_page()
+    current_y = draw_table_header(current_draw, current_y)
+    max_y = page_height - margin_bottom - 80
+    printable_rows = rows or [{"payment_date": "", "contract_number": "", "client_name": "Нет данных за выбранный период", "amount": 0}]
+
+    for row in printable_rows:
+        line_bbox = current_draw.textbbox((0, 0), "Ag", font=body_font)
+        line_height = (line_bbox[3] - line_bbox[1]) + 6
+        estimated_height = max(max(len(lines), 1) for lines in row_lines(current_draw, row)) * line_height + 16
+        if current_y + estimated_height > max_y:
+            pages.append(current_page)
+            current_page, current_draw, current_y = create_page()
+            current_y = draw_table_header(current_draw, current_y)
+        current_y = draw_row(current_draw, row, current_y)
+
+    if current_y + 60 > page_height - margin_bottom:
+        pages.append(current_page)
+        current_page, current_draw, current_y = create_page()
+
+    current_draw.text(
+        (margin_left, current_y + 22),
+        f"Итоговая сумма: {format_money(total_amount)}",
+        fill="#111111",
+        font=total_font,
+    )
+    pages.append(current_page)
+
+    first_page, *other_pages = pages
+    if other_pages:
+        first_page.save(pdf_path, "PDF", resolution=150.0, save_all=True, append_images=other_pages)
+    else:
+        first_page.save(pdf_path, "PDF", resolution=150.0)
+    return pdf_path
+
+
 def serialize_incoming_correspondence(row: dict[str, Any]) -> dict[str, Any]:
     received_date = parse_date_value(row.get("received_date"))
     response_date = parse_date_value(row.get("response_date"))
@@ -3016,6 +3176,35 @@ def export_csi_pdf(
 
     pdf_path = render_csi_export_pdf(normalized_country, date_from, date_to, rows, total_amount)
     filename = f"csi_export_{normalized_country}_{date_from.isoformat()}_{date_to.isoformat()}.pdf"
+    return FileResponse(pdf_path, media_type="application/pdf", filename=filename)
+
+
+@app.post("/api/debtors/payment-report-pdf")
+def export_debtors_payment_report_pdf(
+    payload: PaymentReportPdfRequest,
+    country: str = DEFAULT_COUNTRY,
+    _user: dict[str, Any] = Depends(require_app_user),
+) -> FileResponse:
+    normalized_country = normalize_country_code(country)
+    if payload.date_to < payload.date_from:
+        raise HTTPException(status_code=400, detail="Дата окончания не может быть раньше даты начала.")
+
+    with get_connection() as connection:
+        rows, total_amount = collect_payment_report_rows(
+            connection,
+            country=normalized_country,
+            date_from=payload.date_from,
+            date_to=payload.date_to,
+        )
+
+    pdf_path = render_payment_report_pdf(
+        normalized_country,
+        payload.date_from,
+        payload.date_to,
+        rows,
+        total_amount,
+    )
+    filename = f"payment_report_{normalized_country}_{payload.date_from.isoformat()}_{payload.date_to.isoformat()}.pdf"
     return FileResponse(pdf_path, media_type="application/pdf", filename=filename)
 
 

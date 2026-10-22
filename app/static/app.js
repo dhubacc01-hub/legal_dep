@@ -663,7 +663,9 @@ const accountModalBackdrop = document.getElementById("account-modal-backdrop");
 const forcePasswordModalBackdrop = document.getElementById("force-password-modal-backdrop");
 const receivedPaymentsModalBackdrop = document.getElementById("received-payments-modal-backdrop");
 const csiExportModalBackdrop = document.getElementById("csi-export-modal-backdrop");
+const paymentReportModalBackdrop = document.getElementById("payment-report-modal-backdrop");
 const openModalButton = document.getElementById("open-create-modal");
+const openPaymentReportModalButton = document.getElementById("open-payment-report-modal");
 const actionsBar = document.querySelector(".actions-bar");
 const topbarActions = document.querySelector(".topbar-actions");
 const countrySelect = document.getElementById("country-select");
@@ -717,6 +719,13 @@ const confirmCsiExportButton = document.getElementById("confirm-csi-export-butto
 const csiExportDateFromInput = document.getElementById("csi-export-date-from");
 const csiExportDateToInput = document.getElementById("csi-export-date-to");
 const csiExportStatus = document.getElementById("csi-export-status");
+const closePaymentReportModalButton = document.getElementById("close-payment-report-modal");
+const cancelPaymentReportModalButton = document.getElementById("cancel-payment-report-modal");
+const confirmPaymentReportButton = document.getElementById("confirm-payment-report-button");
+const paymentReportPeriodSelect = document.getElementById("payment-report-period");
+const paymentReportDateFromInput = document.getElementById("payment-report-date-from");
+const paymentReportDateToInput = document.getElementById("payment-report-date-to");
+const paymentReportStatus = document.getElementById("payment-report-status");
 const changePasswordForm = document.getElementById("change-password-form");
 const forcePasswordForm = document.getElementById("force-password-form");
 const createUserForm = document.getElementById("create-user-form");
@@ -1321,6 +1330,23 @@ function bindEvents() {
   csiExportModalBackdrop?.addEventListener("click", (event) => {
     if (event.target === csiExportModalBackdrop) {
       closeCsiExportModal();
+    }
+  });
+  openPaymentReportModalButton?.addEventListener("click", openPaymentReportModal);
+  closePaymentReportModalButton?.addEventListener("click", closePaymentReportModal);
+  cancelPaymentReportModalButton?.addEventListener("click", closePaymentReportModal);
+  confirmPaymentReportButton?.addEventListener("click", handlePaymentReportSubmit);
+  paymentReportPeriodSelect?.addEventListener("change", handlePaymentReportPeriodChange);
+  [paymentReportDateFromInput, paymentReportDateToInput].forEach((input) => {
+    input?.addEventListener("input", () => {
+      if (paymentReportPeriodSelect) {
+        paymentReportPeriodSelect.value = "custom";
+      }
+    });
+  });
+  paymentReportModalBackdrop?.addEventListener("click", (event) => {
+    if (event.target === paymentReportModalBackdrop) {
+      closePaymentReportModal();
     }
   });
   closeAccountModalButton?.addEventListener("click", closeAccountModal);
@@ -3402,6 +3428,95 @@ async function handleCsiExportSubmit() {
     setInlineStatus(csiExportStatus, error?.message || "Не удалось сформировать PDF.");
   } finally {
     confirmCsiExportButton.disabled = false;
+  }
+}
+
+function getPaymentReportPeriodBounds(period) {
+  const today = new Date();
+  if (period === "previous") {
+    return {
+      dateFrom: new Date(today.getFullYear(), today.getMonth() - 1, 1),
+      dateTo: new Date(today.getFullYear(), today.getMonth(), 0),
+    };
+  }
+  return {
+    dateFrom: new Date(today.getFullYear(), today.getMonth(), 1),
+    dateTo: today,
+  };
+}
+
+function applyPaymentReportPeriod(period) {
+  if (!paymentReportDateFromInput || !paymentReportDateToInput) {
+    return;
+  }
+  if (period === "custom") {
+    paymentReportDateFromInput.value = "";
+    paymentReportDateToInput.value = "";
+    paymentReportDateFromInput.focus();
+    return;
+  }
+  const { dateFrom, dateTo } = getPaymentReportPeriodBounds(period);
+  paymentReportDateFromInput.value = formatDisplayDate(toIsoDateFromDate(dateFrom)) ?? "";
+  paymentReportDateToInput.value = formatDisplayDate(toIsoDateFromDate(dateTo)) ?? "";
+}
+
+function openPaymentReportModal() {
+  if (!paymentReportPeriodSelect) {
+    return;
+  }
+  paymentReportPeriodSelect.value = "current";
+  applyPaymentReportPeriod("current");
+  setInlineStatus(paymentReportStatus, "");
+  paymentReportModalBackdrop?.classList.remove("hidden");
+}
+
+function closePaymentReportModal() {
+  setInlineStatus(paymentReportStatus, "");
+  paymentReportModalBackdrop?.classList.add("hidden");
+}
+
+function handlePaymentReportPeriodChange() {
+  applyPaymentReportPeriod(paymentReportPeriodSelect?.value || "current");
+}
+
+async function handlePaymentReportSubmit() {
+  const dateFrom = parseDisplayDateValue(paymentReportDateFromInput?.value ?? "");
+  const dateTo = parseDisplayDateValue(paymentReportDateToInput?.value ?? "");
+
+  if (!dateFrom || !dateTo) {
+    setInlineStatus(paymentReportStatus, "Укажите обе даты периода.");
+    return;
+  }
+
+  setInlineStatus(paymentReportStatus, "Готовим PDF...", "loading");
+  confirmPaymentReportButton.disabled = true;
+
+  try {
+    const response = await fetch(`/api/debtors/payment-report-pdf?country=${encodeURIComponent(state.currentCountry)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date_from: dateFrom, date_to: dateTo }),
+    });
+    if (!response.ok) {
+      const errorPayload = await response.json().catch(() => ({}));
+      throw new Error(errorPayload.detail || `PAYMENT_REPORT_HTTP_${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const fileUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = fileUrl;
+    link.download = `payment_report_${state.currentCountry}_${dateFrom}_${dateTo}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(fileUrl), 60_000);
+    closePaymentReportModal();
+  } catch (error) {
+    console.error(error);
+    setInlineStatus(paymentReportStatus, error?.message || "Не удалось сформировать PDF.");
+  } finally {
+    confirmPaymentReportButton.disabled = false;
   }
 }
 

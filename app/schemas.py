@@ -140,6 +140,11 @@ class CsiExportPdfRequest(BaseModel):
     date_to: date
 
 
+class PaymentReportPdfRequest(BaseModel):
+    date_from: date
+    date_to: date
+
+
 class ImportPreviewRequest(BaseModel):
     path: str = Field(min_length=1, max_length=2048)
 
