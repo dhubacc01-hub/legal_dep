@@ -28,8 +28,8 @@
 
       <main class="content">
         <section class="actions-bar">
-          <button class="secondary-button" id="open-payment-report-modal" type="button">
-            Рапорт по выплатам
+          <button class="secondary-button" id="open-export-modal" type="button">
+            Экспорт
           </button>
           <button class="primary-button" id="open-create-modal" type="button">
             Добавить должника
@@ -57,7 +57,12 @@
                   <th>Город</th>
                   <th>Суд</th>
                   <th>Претензия</th>
-                  <th>Дата отправки претензии</th>
+                  <th aria-sort="none">
+                    <button class="table-sort-button" type="button" data-sort-field="claim_sent_date_iso">
+                      <span data-sort-label>Дата отправки претензии</span>
+                      <span class="table-sort-indicator" aria-hidden="true">&#8597;</span>
+                    </button>
+                  </th>
                   <th>Кол-во дней с отправки претензии</th>
                   <th>Кол-во дней долга</th>
                   <th>Сумма долга (тг)</th>
@@ -67,7 +72,12 @@
                   <th>Направлен иск</th>
                   <th>Дата отправки иска</th>
                   <th>Иск принят</th>
-                  <th>Дата заседания</th>
+                  <th aria-sort="none">
+                    <button class="table-sort-button" type="button" data-sort-field="hearing_date_iso">
+                      <span data-sort-label>Дата заседания</span>
+                      <span class="table-sort-indicator" aria-hidden="true">&#8597;</span>
+                    </button>
+                  </th>
                   <th>Есть решение</th>
                   <th>Решение</th>
                   <th>Сумма выплаты по решению (тг)</th>
@@ -526,108 +536,8 @@
       </div>
     </div>
 
-    <div class="modal-backdrop hidden" id="csi-export-modal-backdrop">
-      <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="csi-export-modal-title">
-        <div class="modal-header">
-          <div>
-            <p class="eyebrow">Экспорт ЧСИ</p>
-            <h3 id="csi-export-modal-title">Экспорт PDF</h3>
-          </div>
-          <button class="icon-button" id="close-csi-export-modal" type="button" aria-label="Закрыть">
-            &times;
-          </button>
-        </div>
+    {% include "export_modal.html" %}
 
-        <div class="modal-inline-status hidden" id="csi-export-status" aria-live="polite"></div>
-
-        <div class="modal-form">
-          <label>
-            <span>Дата с</span>
-            <input
-              id="csi-export-date-from"
-              type="text"
-              class="modal-date-input date-input"
-              data-date-input="true"
-              placeholder="дд.мм.гггг"
-              autocomplete="off"
-            />
-          </label>
-
-          <label>
-            <span>Дата по</span>
-            <input
-              id="csi-export-date-to"
-              type="text"
-              class="modal-date-input date-input"
-              data-date-input="true"
-              placeholder="дд.мм.гггг"
-              autocomplete="off"
-            />
-          </label>
-        </div>
-
-        <div class="modal-actions">
-          <button class="secondary-button" id="cancel-csi-export-modal" type="button">Отмена</button>
-          <button class="primary-button" id="confirm-csi-export-button" type="button">Скачать PDF</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="modal-backdrop hidden" id="payment-report-modal-backdrop">
-      <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="payment-report-modal-title">
-        <div class="modal-header">
-          <div>
-            <p class="eyebrow">Должники</p>
-            <h3 id="payment-report-modal-title">Рапорт по выплатам</h3>
-          </div>
-          <button class="icon-button" id="close-payment-report-modal" type="button" aria-label="Закрыть">
-            &times;
-          </button>
-        </div>
-
-        <div class="modal-inline-status hidden" id="payment-report-status" aria-live="polite"></div>
-
-        <div class="modal-form">
-          <label>
-            <span>Период</span>
-            <select id="payment-report-period">
-              <option value="current">Текущий месяц</option>
-              <option value="previous">Прошлый месяц</option>
-              <option value="custom">Другое</option>
-            </select>
-          </label>
-
-          <label>
-            <span>Дата с</span>
-            <input
-              id="payment-report-date-from"
-              type="text"
-              class="modal-date-input date-input"
-              data-date-input="true"
-              placeholder="дд.мм.гггг"
-              autocomplete="off"
-            />
-          </label>
-
-          <label>
-            <span>Дата по</span>
-            <input
-              id="payment-report-date-to"
-              type="text"
-              class="modal-date-input date-input"
-              data-date-input="true"
-              placeholder="дд.мм.гггг"
-              autocomplete="off"
-            />
-          </label>
-        </div>
-
-        <div class="modal-actions">
-          <button class="secondary-button" id="cancel-payment-report-modal" type="button">Отмена</button>
-          <button class="primary-button" id="confirm-payment-report-button" type="button">Скачать PDF</button>
-        </div>
-      </div>
-    </div>
 
     <div class="modal-backdrop hidden" id="force-password-modal-backdrop">
       <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="force-password-modal-title">
@@ -684,6 +594,7 @@
     <script>
       window.__APP_CONTEXT__ = {{ app_context_json | safe }};
     </script>
+    <script src="{{ url_for('static', path='exports.js') }}" defer></script>
     <script src="{{ url_for('static', path='app.js') }}" defer></script>
   </body>
 </html>

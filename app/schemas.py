@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -143,6 +144,16 @@ class CsiExportPdfRequest(BaseModel):
 class PaymentReportPdfRequest(BaseModel):
     date_from: date
     date_to: date
+
+
+class TableExportRequest(BaseModel):
+    source: Literal["debtors", "csi", "incoming_claims", "incoming_other"]
+    country: Literal["kz", "uz"]
+    format: Literal["pdf", "xlsx"]
+    report: Literal["table", "payments"] = "table"
+    record_ids: list[int] = Field(max_length=100000)
+    date_from: date | None = None
+    date_to: date | None = None
 
 
 class ImportPreviewRequest(BaseModel):

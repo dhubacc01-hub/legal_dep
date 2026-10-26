@@ -34,6 +34,7 @@
 
       <main class="content">
         <section class="actions-bar">
+          <button class="secondary-button" id="open-export-modal" type="button">Экспорт</button>
           <button class="primary-button" id="open-incoming-modal" type="button">Добавить запись</button>
         </section>
 
@@ -315,9 +316,11 @@
       </div>
     </div>
 
+    {% include "export_modal.html" %}
     <script>
       window.__APP_CONTEXT__ = {{ app_context_json | safe }};
     </script>
+    <script src="{{ url_for('static', path='exports.js') }}" defer></script>
     <script src="{{ url_for('static', path='incoming_correspondence.js') }}" defer></script>
   </body>
 </html>

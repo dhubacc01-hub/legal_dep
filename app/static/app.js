@@ -9,6 +9,8 @@
   receivedPaymentsDrafts: [],
   lastCreatedCourt: null,
   currentPage: 1,
+  sortField: null,
+  sortDirection: "asc",
   currentLanguage: "ru",
   currentCountry: "kz",
   appPage: window.__APP_CONTEXT__?.page ?? "debtors",
@@ -21,6 +23,7 @@
 };
 
 const PAGE_SIZE = 50;
+const SORTABLE_DATE_FIELDS = ["claim_sent_date_iso", "hearing_date_iso"];
 const VIEW_STATE_STORAGE_KEY = "legal-department-table-view";
 const LANGUAGE_STORAGE_KEY = "legal-department-language";
 const COUNTRY_STORAGE_KEY = "legal-department-country";
@@ -662,11 +665,7 @@ const lawsuitModalBackdrop = document.getElementById("lawsuit-modal-backdrop");
 const accountModalBackdrop = document.getElementById("account-modal-backdrop");
 const forcePasswordModalBackdrop = document.getElementById("force-password-modal-backdrop");
 const receivedPaymentsModalBackdrop = document.getElementById("received-payments-modal-backdrop");
-const csiExportModalBackdrop = document.getElementById("csi-export-modal-backdrop");
-const paymentReportModalBackdrop = document.getElementById("payment-report-modal-backdrop");
 const openModalButton = document.getElementById("open-create-modal");
-const openPaymentReportModalButton = document.getElementById("open-payment-report-modal");
-const actionsBar = document.querySelector(".actions-bar");
 const topbarActions = document.querySelector(".topbar-actions");
 const countrySelect = document.getElementById("country-select");
 const ownerButton = document.getElementById("owner-button");
@@ -713,19 +712,6 @@ const saveReceivedPaymentsButton = document.getElementById("save-received-paymen
 const addReceivedPaymentRowButton = document.getElementById("add-received-payment-row");
 const receivedPaymentsList = document.getElementById("received-payments-list");
 const receivedPaymentsStatus = document.getElementById("received-payments-status");
-const closeCsiExportModalButton = document.getElementById("close-csi-export-modal");
-const cancelCsiExportModalButton = document.getElementById("cancel-csi-export-modal");
-const confirmCsiExportButton = document.getElementById("confirm-csi-export-button");
-const csiExportDateFromInput = document.getElementById("csi-export-date-from");
-const csiExportDateToInput = document.getElementById("csi-export-date-to");
-const csiExportStatus = document.getElementById("csi-export-status");
-const closePaymentReportModalButton = document.getElementById("close-payment-report-modal");
-const cancelPaymentReportModalButton = document.getElementById("cancel-payment-report-modal");
-const confirmPaymentReportButton = document.getElementById("confirm-payment-report-button");
-const paymentReportPeriodSelect = document.getElementById("payment-report-period");
-const paymentReportDateFromInput = document.getElementById("payment-report-date-from");
-const paymentReportDateToInput = document.getElementById("payment-report-date-to");
-const paymentReportStatus = document.getElementById("payment-report-status");
 const changePasswordForm = document.getElementById("change-password-form");
 const forcePasswordForm = document.getElementById("force-password-form");
 const createUserForm = document.getElementById("create-user-form");
@@ -1171,12 +1157,9 @@ async function initAppData() {
 document.addEventListener("DOMContentLoaded", async () => {
   ensureLanguageControls();
   syncPrimaryNavigation();
-  ensureCsiExportAction();
+  if (state.appPage === "csi") openModalButton?.classList.add("hidden");
   state.currentLanguage = window.localStorage.getItem(LANGUAGE_STORAGE_KEY) || "ru";
   state.currentCountry = window.localStorage.getItem(COUNTRY_STORAGE_KEY) || "kz";
-  if (state.appPage === "csi") {
-    openModalButton?.closest(".actions-bar")?.classList.remove("hidden");
-  }
   document.getElementById("country-select").value = state.currentCountry;
   document.getElementById("language-select").value = state.currentLanguage;
   if (closeLawsuitModalButton) {
@@ -1323,31 +1306,21 @@ function bindEvents() {
       closeReceivedPaymentsModal();
     }
   });
-  document.getElementById("open-csi-export-modal")?.addEventListener("click", openCsiExportModal);
-  closeCsiExportModalButton?.addEventListener("click", closeCsiExportModal);
-  cancelCsiExportModalButton?.addEventListener("click", closeCsiExportModal);
-  confirmCsiExportButton?.addEventListener("click", handleCsiExportSubmit);
-  csiExportModalBackdrop?.addEventListener("click", (event) => {
-    if (event.target === csiExportModalBackdrop) {
-      closeCsiExportModal();
-    }
-  });
-  openPaymentReportModalButton?.addEventListener("click", openPaymentReportModal);
-  closePaymentReportModalButton?.addEventListener("click", closePaymentReportModal);
-  cancelPaymentReportModalButton?.addEventListener("click", closePaymentReportModal);
-  confirmPaymentReportButton?.addEventListener("click", handlePaymentReportSubmit);
-  paymentReportPeriodSelect?.addEventListener("change", handlePaymentReportPeriodChange);
-  [paymentReportDateFromInput, paymentReportDateToInput].forEach((input) => {
-    input?.addEventListener("input", () => {
-      if (paymentReportPeriodSelect) {
-        paymentReportPeriodSelect.value = "custom";
-      }
-    });
-  });
-  paymentReportModalBackdrop?.addEventListener("click", (event) => {
-    if (event.target === paymentReportModalBackdrop) {
-      closePaymentReportModal();
-    }
+  window.LegalExport.init({
+    closeDatePicker,
+    getSelection: () => {
+      const { roots, childrenByParent } = filteredDebtorBranches(readFilters());
+      return {
+        source: state.appPage === "csi" ? "csi" : "debtors",
+        country: state.currentCountry,
+        title: `${state.appPage === "csi" ? "ЧСИ" : "Должники"} · ${COUNTRY_DISPLAY_LABELS[state.currentCountry].ru}`,
+        payments: true,
+        record_ids: roots.flatMap((parent) => {
+          const child = childrenByParent.get(parent.id);
+          return child ? [parent.id, child.id] : [parent.id];
+        }),
+      };
+    },
   });
   closeAccountModalButton?.addEventListener("click", closeAccountModal);
   accountModalBackdrop?.addEventListener("click", (event) => {
@@ -1413,9 +1386,11 @@ function applyStaticTranslations() {
   const headerTexts = getLocalizedHeaders();
   headerCells.forEach((cell, index) => {
     if (headerTexts[index]) {
-      cell.textContent = headerTexts[index];
+      const label = cell.querySelector("[data-sort-label]") || cell;
+      label.textContent = headerTexts[index];
     }
   });
+  updateTableSortHeaders();
 
   const modalHeader = document.querySelector("#debtor-modal-backdrop .modal-header .eyebrow");
   if (modalHeader && state.modalMode === "create") {
@@ -1791,23 +1766,6 @@ function syncPrimaryNavigation() {
   nav.querySelectorAll(".nav-tab").forEach((link) => {
     link.classList.toggle("active", link.getAttribute("href") === activeHref);
   });
-}
-
-function ensureCsiExportAction() {
-  if (state.appPage !== "csi" || !actionsBar) {
-    return;
-  }
-  actionsBar.classList.remove("hidden");
-  let button = document.getElementById("open-csi-export-modal");
-  if (!button) {
-    actionsBar.innerHTML = "";
-    button = document.createElement("button");
-    button.id = "open-csi-export-modal";
-    button.type = "button";
-    button.className = "primary-button";
-    actionsBar.appendChild(button);
-  }
-  button.textContent = "Экспорт PDF";
 }
 
 function initFilters() {
@@ -2236,6 +2194,40 @@ function handleCourtModalCityChange() {
   }
 }
 
+function filteredDebtorBranches(filters) {
+  const childrenByParent = new Map(
+    state.debtors.filter((debtor) => debtor.parent_debtor_id).map((debtor) => [debtor.parent_debtor_id, debtor]),
+  );
+  const roots = state.debtors.filter((debtor) => !debtor.parent_debtor_id)
+    .filter((parent) => branchMatchesFilters(parent, childrenByParent.get(parent.id), filters));
+  if (SORTABLE_DATE_FIELDS.includes(state.sortField)) {
+    const direction = state.sortDirection === "desc" ? -1 : 1;
+    // Sort whole branches so a returned lawsuit stays attached to its parent.
+    roots.sort((left, right) => {
+      const leftDate = left[state.sortField];
+      const rightDate = right[state.sortField];
+      if (!leftDate || !rightDate) {
+        return !leftDate && !rightDate ? 0 : !leftDate ? 1 : -1;
+      }
+      return (leftDate < rightDate ? -1 : leftDate > rightDate ? 1 : 0) * direction;
+    });
+  }
+  return { roots, childrenByParent };
+}
+
+function updateTableSortHeaders() {
+  thead.querySelectorAll("[data-sort-field]").forEach((button) => {
+    const active = state.sortField === button.dataset.sortField;
+    button.classList.toggle("is-sorted", active);
+    button.closest("th").setAttribute("aria-sort", active
+      ? state.sortDirection === "asc" ? "ascending" : "descending"
+      : "none");
+    button.querySelector(".table-sort-indicator").textContent = active
+      ? state.sortDirection === "asc" ? "\u2191" : "\u2193"
+      : "\u2195";
+  });
+}
+
 function renderDebtors(resetPage = false) {
   if (resetPage) {
     state.currentPage = 1;
@@ -2243,6 +2235,7 @@ function renderDebtors(resetPage = false) {
 
   const filters = readFilters();
   updateActiveFilters(filters);
+  updateTableSortHeaders();
 
   if (!state.debtors.length) {
     tbody.innerHTML = `<tr class="empty-row"><td colspan="32">${t("noRecords")}</td></tr>`;
@@ -2250,17 +2243,7 @@ function renderDebtors(resetPage = false) {
     saveViewState();
     return;
   }
-  const roots = state.debtors.filter((debtor) => !debtor.parent_debtor_id);
-  const childrenByParent = new Map(
-    state.debtors
-      .filter((debtor) => debtor.parent_debtor_id)
-      .map((debtor) => [debtor.parent_debtor_id, debtor]),
-  );
-
-  const visibleRoots = roots.filter((debtor) => {
-    const child = childrenByParent.get(debtor.id);
-    return branchMatchesFilters(debtor, child, filters);
-  });
+  const { roots: visibleRoots, childrenByParent } = filteredDebtorBranches(filters);
 
   if (!visibleRoots.length) {
     const emptyMessage = hasActiveFilters(filters) ? t("noResults") : t("noRecords");
@@ -2301,6 +2284,15 @@ function handleFilterInteraction(event) {
 }
 
 function handleFilterClick(event) {
+  const sortButton = event.target.closest("[data-sort-field]");
+  if (sortButton && SORTABLE_DATE_FIELDS.includes(sortButton.dataset.sortField)) {
+    const field = sortButton.dataset.sortField;
+    state.sortDirection = state.sortField === field && state.sortDirection === "asc" ? "desc" : "asc";
+    state.sortField = field;
+    renderDebtors(true);
+    return;
+  }
+
   const resetButton = event.target.closest("[data-filter-reset]");
   if (resetButton) {
     clearFilters();
@@ -2485,6 +2477,7 @@ function saveViewState() {
     const payload = {
       currentPage: state.currentPage,
       filters: collectFilterControlState(),
+      sort: { field: state.sortField, direction: state.sortDirection },
     };
     window.localStorage.setItem(getViewStateStorageKey(), JSON.stringify(payload));
   } catch (error) {
@@ -2493,6 +2486,8 @@ function saveViewState() {
 }
 
 function restoreViewState() {
+  state.sortField = null;
+  state.sortDirection = "asc";
   try {
     const raw = window.localStorage.getItem(getViewStateStorageKey());
     if (!raw) {
@@ -2502,6 +2497,10 @@ function restoreViewState() {
     const parsed = JSON.parse(raw);
     if (Number.isFinite(Number(parsed?.currentPage))) {
       state.currentPage = Math.max(1, Number(parsed.currentPage));
+    }
+    if (SORTABLE_DATE_FIELDS.includes(parsed?.sort?.field)) {
+      state.sortField = parsed.sort.field;
+      state.sortDirection = parsed.sort.direction === "desc" ? "desc" : "asc";
     }
     applyFilterControlState(parsed?.filters ?? {});
     updateAllFilterSummaries();
@@ -3377,148 +3376,7 @@ async function handleReceivedPaymentsSave() {
   }
 }
 
-function openCsiExportModal() {
-  const todayIso = toIsoDateFromDate(new Date());
-  csiExportDateFromInput.value = formatDisplayDate(todayIso) ?? "";
-  csiExportDateToInput.value = formatDisplayDate(todayIso) ?? "";
-  setInlineStatus(csiExportStatus, "");
-  csiExportModalBackdrop?.classList.remove("hidden");
-}
 
-function closeCsiExportModal() {
-  setInlineStatus(csiExportStatus, "");
-  csiExportModalBackdrop?.classList.add("hidden");
-}
-
-async function handleCsiExportSubmit() {
-  const dateFrom = parseDisplayDateValue(csiExportDateFromInput?.value ?? "");
-  const dateTo = parseDisplayDateValue(csiExportDateToInput?.value ?? "");
-
-  if (!dateFrom || !dateTo) {
-    setInlineStatus(csiExportStatus, "Укажите обе даты периода.");
-    return;
-  }
-
-  setInlineStatus(csiExportStatus, "Готовим PDF...", "loading");
-  confirmCsiExportButton.disabled = true;
-
-  try {
-    const response = await fetch(`/api/csi/export-pdf?country=${encodeURIComponent(state.currentCountry)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date_from: dateFrom, date_to: dateTo }),
-    });
-    if (!response.ok) {
-      const errorPayload = await response.json().catch(() => ({}));
-      throw new Error(errorPayload.detail || `CSI_EXPORT_HTTP_${response.status}`);
-    }
-
-    const blob = await response.blob();
-    const fileUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = fileUrl;
-    link.download = `csi_export_${state.currentCountry}_${dateFrom}_${dateTo}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => window.URL.revokeObjectURL(fileUrl), 60_000);
-    closeCsiExportModal();
-  } catch (error) {
-    console.error(error);
-    setInlineStatus(csiExportStatus, error?.message || "Не удалось сформировать PDF.");
-  } finally {
-    confirmCsiExportButton.disabled = false;
-  }
-}
-
-function getPaymentReportPeriodBounds(period) {
-  const today = new Date();
-  if (period === "previous") {
-    return {
-      dateFrom: new Date(today.getFullYear(), today.getMonth() - 1, 1),
-      dateTo: new Date(today.getFullYear(), today.getMonth(), 0),
-    };
-  }
-  return {
-    dateFrom: new Date(today.getFullYear(), today.getMonth(), 1),
-    dateTo: today,
-  };
-}
-
-function applyPaymentReportPeriod(period) {
-  if (!paymentReportDateFromInput || !paymentReportDateToInput) {
-    return;
-  }
-  if (period === "custom") {
-    paymentReportDateFromInput.value = "";
-    paymentReportDateToInput.value = "";
-    paymentReportDateFromInput.focus();
-    return;
-  }
-  const { dateFrom, dateTo } = getPaymentReportPeriodBounds(period);
-  paymentReportDateFromInput.value = formatDisplayDate(toIsoDateFromDate(dateFrom)) ?? "";
-  paymentReportDateToInput.value = formatDisplayDate(toIsoDateFromDate(dateTo)) ?? "";
-}
-
-function openPaymentReportModal() {
-  if (!paymentReportPeriodSelect) {
-    return;
-  }
-  paymentReportPeriodSelect.value = "current";
-  applyPaymentReportPeriod("current");
-  setInlineStatus(paymentReportStatus, "");
-  paymentReportModalBackdrop?.classList.remove("hidden");
-}
-
-function closePaymentReportModal() {
-  setInlineStatus(paymentReportStatus, "");
-  paymentReportModalBackdrop?.classList.add("hidden");
-}
-
-function handlePaymentReportPeriodChange() {
-  applyPaymentReportPeriod(paymentReportPeriodSelect?.value || "current");
-}
-
-async function handlePaymentReportSubmit() {
-  const dateFrom = parseDisplayDateValue(paymentReportDateFromInput?.value ?? "");
-  const dateTo = parseDisplayDateValue(paymentReportDateToInput?.value ?? "");
-
-  if (!dateFrom || !dateTo) {
-    setInlineStatus(paymentReportStatus, "Укажите обе даты периода.");
-    return;
-  }
-
-  setInlineStatus(paymentReportStatus, "Готовим PDF...", "loading");
-  confirmPaymentReportButton.disabled = true;
-
-  try {
-    const response = await fetch(`/api/debtors/payment-report-pdf?country=${encodeURIComponent(state.currentCountry)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date_from: dateFrom, date_to: dateTo }),
-    });
-    if (!response.ok) {
-      const errorPayload = await response.json().catch(() => ({}));
-      throw new Error(errorPayload.detail || `PAYMENT_REPORT_HTTP_${response.status}`);
-    }
-
-    const blob = await response.blob();
-    const fileUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = fileUrl;
-    link.download = `payment_report_${state.currentCountry}_${dateFrom}_${dateTo}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => window.URL.revokeObjectURL(fileUrl), 60_000);
-    closePaymentReportModal();
-  } catch (error) {
-    console.error(error);
-    setInlineStatus(paymentReportStatus, error?.message || "Не удалось сформировать PDF.");
-  } finally {
-    confirmPaymentReportButton.disabled = false;
-  }
-}
 
 function openCreateModal() {
   state.modalMode = "create";
@@ -4588,6 +4446,7 @@ function applyDatePickerValue(isoValue) {
   }
 
   input.value = formatDisplayDate(isoValue) ?? "";
+  if (input.id.startsWith("export-")) input.dispatchEvent(new Event("change", { bubbles: true }));
   if (input.dataset.inlineField) {
     commitInlineField(input);
   } else if (input.dataset.filterKey) {

@@ -165,6 +165,16 @@ function syncPrimaryNavigation() {
 }
 
 function bindEvents() {
+  window.LegalExport.init({
+    closeDatePicker,
+    getSelection: () => ({
+      source: state.currentTab === "claims" ? "incoming_claims" : "incoming_other",
+      country: state.currentCountry,
+      title: `Корреспонденция: ${state.currentTab === "claims" ? "Претензии" : "Прочее"} · ${state.currentCountry.toUpperCase()}`,
+      payments: false,
+      record_ids: filteredRecords().map((record) => record.id),
+    }),
+  });
   countrySelect.addEventListener("change", async () => {
     state.currentCountry = countrySelect.value;
     localStorage.setItem(COUNTRY_STORAGE_KEY, state.currentCountry);
@@ -1237,6 +1247,7 @@ function applyDatePickerValue(isoValue) {
     return;
   }
   input.value = formatDisplayDate(isoValue) ?? "";
+  if (input.id.startsWith("export-")) input.dispatchEvent(new Event("change", { bubbles: true }));
   if (input.dataset.filterKey) {
     handleFilterChange({ target: input });
   }

@@ -1,0 +1,51 @@
+<div class="modal-backdrop hidden" id="export-modal-backdrop">
+  <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="export-modal-title">
+    <div class="modal-header">
+      <div>
+        <p class="eyebrow" id="export-scope"></p>
+        <h3 id="export-modal-title">Экспорт</h3>
+      </div>
+      <button class="icon-button" id="close-export-modal" type="button" aria-label="Закрыть">&times;</button>
+    </div>
+    <p id="export-selection-summary"></p>
+    <div class="modal-inline-status hidden" id="export-status" aria-live="polite"></div>
+    <div class="modal-form">
+      <label>
+        <span>Что выгрузить</span>
+        <select id="export-report">
+          <option value="table">Таблица с учётом фильтров</option>
+          <option value="payments">Рапорт по выплатам</option>
+        </select>
+      </label>
+      <label>
+        <span>Формат</span>
+        <select id="export-format">
+          <option value="xlsx">Excel (.xlsx)</option>
+          <option value="pdf">PDF</option>
+        </select>
+      </label>
+      <div class="export-period-fields hidden" id="export-period-fields">
+        <label>
+          <span>Период выплат</span>
+          <select id="export-period">
+            <option value="current">Текущий месяц</option>
+            <option value="previous">Прошлый месяц</option>
+            <option value="custom">Другое</option>
+          </select>
+        </label>
+        <label>
+          <span>Дата с</span>
+          <input id="export-date-from" type="text" class="modal-date-input date-input" data-date-input="true" placeholder="дд.мм.гггг" autocomplete="off" />
+        </label>
+        <label>
+          <span>Дата по</span>
+          <input id="export-date-to" type="text" class="modal-date-input date-input" data-date-input="true" placeholder="дд.мм.гггг" autocomplete="off" />
+        </label>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary-button" id="cancel-export-modal" type="button">Отмена</button>
+      <button class="primary-button" id="confirm-export-button" type="button">Скачать</button>
+    </div>
+  </div>
+</div>

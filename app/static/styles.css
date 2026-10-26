@@ -207,6 +207,23 @@ h3 {
   margin-bottom: 12px;
 }
 
+.export-period-fields {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.export-period-fields > label:first-child {
+  grid-column: 1 / -1;
+}
+
+#export-selection-summary {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 18px;
+}
+
 .correspondence-tabs {
   display: flex;
   gap: 10px;
@@ -431,6 +448,38 @@ th {
 .header-row th {
   top: 56px;
   z-index: 2;
+}
+
+.table-sort-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.table-sort-button:hover,
+.table-sort-button.is-sorted {
+  color: #8fb5ff;
+}
+
+.table-sort-button:focus-visible {
+  outline: 1px solid #8fb5ff;
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+.table-sort-indicator {
+  flex-shrink: 0;
+  font-size: 12px;
 }
 
 .filter-row th:nth-child(1),

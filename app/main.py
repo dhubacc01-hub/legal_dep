@@ -125,6 +125,7 @@ from app.schemas import (
     LawsuitPdfGenerateRequest,
     LoginRequest,
     PaymentReportPdfRequest,
+    TableExportRequest,
     UserCreateRequest,
     UserView,
 )
@@ -3206,6 +3207,65 @@ def export_debtors_payment_report_pdf(
     )
     filename = f"payment_report_{normalized_country}_{payload.date_from.isoformat()}_{payload.date_to.isoformat()}.pdf"
     return FileResponse(pdf_path, media_type="application/pdf", filename=filename)
+
+
+@app.post("/api/exports")
+def export_filtered_table(
+    payload: TableExportRequest,
+    _user: dict[str, Any] = Depends(require_app_user),
+) -> FileResponse:
+    from contextlib import closing
+    from app.export_reports import payment_report, render_pdf, render_xlsx, table_report
+
+    if payload.report == "payments":
+        if payload.source.startswith("incoming_"):
+            raise HTTPException(status_code=400, detail="Для корреспонденции доступен экспорт таблицы.")
+        if not payload.date_from or not payload.date_to:
+            raise HTTPException(status_code=400, detail="Укажите обе даты периода.")
+        if payload.date_to < payload.date_from:
+            raise HTTPException(status_code=400, detail="Дата окончания не может быть раньше даты начала.")
+
+    requested_ids = list(dict.fromkeys(payload.record_ids))
+    with closing(get_connection()) as connection:
+        if payload.source.startswith("incoming_"):
+            rows = [dict(row) for row in connection.execute(
+                "SELECT * FROM incoming_correspondence WHERE COALESCE(country, ?) = ?",
+                (DEFAULT_COUNTRY, payload.country),
+            ) if (row["category"] == INCOMING_CATEGORY_CLAIM) == (payload.source == "incoming_claims")]
+        else:
+            csi_clause = "IS NOT NULL" if payload.source == "csi" else "IS NULL"
+            rows = [dict(row) for row in connection.execute(
+                f"SELECT * FROM debtors WHERE COALESCE(country, ?) = ? AND csi_transferred_at {csi_clause}",
+                (DEFAULT_COUNTRY, payload.country),
+            )]
+            mark_return_rework_children(rows)
+
+        by_id = {row["id"]: row for row in rows}
+        if any(record_id not in by_id for record_id in requested_ids):
+            raise HTTPException(status_code=409, detail="Данные таблицы изменились. Обновите страницу и повторите экспорт.")
+        selected = [by_id[record_id] for record_id in requested_ids]
+
+        if payload.report == "payments":
+            wanted = set(requested_ids)
+            payments = [dict(row) for row in connection.execute(
+                """
+                SELECT p.debtor_id, p.payment_date, p.amount, d.contract_number, d.client_name
+                FROM debtor_received_payments p JOIN debtors d ON d.id = p.debtor_id
+                WHERE p.payment_date >= ? AND p.payment_date <= ?
+                ORDER BY p.payment_date, d.client_name, p.id
+                """,
+                (payload.date_from.isoformat(), payload.date_to.isoformat()),
+            ) if row["debtor_id"] in wanted]
+            report = payment_report(payload.source, payload.country, payments, payload.date_from, payload.date_to)
+        else:
+            serialize = serialize_incoming_correspondence if payload.source.startswith("incoming_") else serialize_debtor
+            report = table_report(payload.source, payload.country, [serialize(row) for row in selected])
+
+    render = render_pdf if payload.format == "pdf" else render_xlsx
+    path = render(report, GENERATED_DIR)
+    media_type = "application/pdf" if payload.format == "pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    filename = f"{payload.source}_{payload.report}_{payload.country}.{payload.format}"
+    return FileResponse(path, media_type=media_type, filename=filename)
 
 
 @app.get("/api/incoming-correspondence")
