@@ -152,6 +152,28 @@ test("sort headers expose active direction and reset the inactive indicator", ()
   assert.equal(vm.runInContext("buttons[1].indicator.textContent", context), "\u2195");
 });
 
+test("CSI filters include work and closure categories only in the CSI table", () => {
+  const context = pageContext("app.js");
+  vm.runInContext(`
+    state.referenceData = { categories: ["Передать на ЧСИ"], csiCategories: ["В работе", "Закрыт по ЧСИ"] };
+    var categoryFilter = FILTER_COLUMNS.find(column => column.key === "category");
+    var debtorsOptions = getFilterOptions(categoryFilter);
+    state.appPage = "csi";
+    var csiOptions = getFilterOptions(categoryFilter);
+  `, context);
+  assert.equal(vm.runInContext("debtorsOptions.join(',')", context), "Передать на ЧСИ");
+  assert.equal(vm.runInContext("csiOptions.join(',')", context), "Передать на ЧСИ,В работе,Закрыт по ЧСИ");
+});
+
+test("automatically closed CSI category cannot be edited in the table", () => {
+  const context = pageContext("app.js");
+  const markup = vm.runInContext(`renderCategorySelect({
+    id: 1, category: "Закрыт по ЧСИ", category_is_locked: true, category_options: ["Закрыт по ЧСИ"]
+  })`, context);
+  assert.match(markup, /<select[^>]*\bdisabled\b/);
+  assert.match(markup, /<option value="Закрыт по ЧСИ" selected>/);
+});
+
 test("incoming export respects active tab, multi-select empty values, text and dates", () => {
   const context = pageContext("incoming_correspondence.js");
   vm.runInContext(`

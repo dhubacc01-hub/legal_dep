@@ -69,6 +69,8 @@ const CATEGORY_LABELS = {
   "Не должник": { ru: "Не должник", pl: "Nie jest dłużnikiem", en: "Not a debtor", uk: "Не боржник", kk: "Борышкер емес" },
   "Требуется проверка решения в кабинете": { ru: "Требуется проверка решения в кабинете", pl: "Wymaga sprawdzenia decyzji w gabinecie", en: "Decision check required", uk: "Потрібна перевірка рішення в кабінеті", kk: "Кабинетте шешімді тексеру қажет" },
   "Передать на ЧСИ": { ru: "Передать на ЧСИ", pl: "Przekazać do komornika", en: "Send to bailiff", uk: "Передати приватному виконавцю", kk: "ЖСИ-ға беру" },
+  "В работе": { ru: "В работе", pl: "W toku", en: "In progress", uk: "У роботі", kk: "Жұмыста" },
+  "Закрыт по ЧСИ": { ru: "Закрыт по ЧСИ", pl: "Egzekucja zakończona", en: "Enforcement closed", uk: "Виконавче провадження закрито", kk: "ЖСИ бойынша жабылды" },
 };
 
 const DECISION_LABELS = {
@@ -646,6 +648,8 @@ const CATEGORY_STYLES = {
   "Не должник": { bg: "#808080", text: "#111111" },
   "Требуется проверка решения в кабинете": { bg: "#7B68EE", text: "#ffffff" },
   "Передать на ЧСИ": { bg: "#FA8072", text: "#111111" },
+  "В работе": { bg: "#64B5F6", text: "#111111" },
+  "Закрыт по ЧСИ": { bg: "#81C784", text: "#111111" },
 };
 
 const DECISION_STYLES = {
@@ -2034,6 +2038,9 @@ function getFilterOptions(source) {
   }
 
   const baseOptions = [...(state.referenceData?.[source.optionsSource] ?? [])];
+  if (source.key === "category" && state.appPage === "csi") {
+    baseOptions.push(...(state.referenceData?.csiCategories ?? []));
+  }
   if (source.includeEmptyOption) {
     return ["__", ...baseOptions];
   }
@@ -2964,6 +2971,7 @@ function renderCategorySelect(debtor) {
       class="cell-editor cell-select cell-category"
       data-inline-field="category"
       data-id="${debtor.id}"
+      ${debtor.category_is_locked && debtor.category_options.length === 1 ? "disabled" : ""}
       ${style}
     >
       ${options}

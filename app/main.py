@@ -162,6 +162,8 @@ CATEGORY_WAITING_FOR_CLAIM_RESPONSE = "Ожидаем ответа по прет
 CATEGORY_RETURNED_TO_LEGAL = "Возврат в работу Юр. Отдела"
 CATEGORY_DEBT_CLOSED = "Долг закрыт"
 CATEGORY_TRANSFER_TO_CSI = "Передать на ЧСИ"
+CSI_CATEGORY_IN_WORK = "В работе"
+CSI_CATEGORY_CLOSED = "Закрыт по ЧСИ"
 
 DECISION_SATISFY = "Удовлетворить"
 DECISION_PARTIAL = "Частично"
@@ -629,6 +631,7 @@ def apply_business_rules(existing: dict[str, Any], updates: dict[str, Any]) -> d
 
     if (
         existing.get("parent_debtor_id")
+        and not existing.get("csi_transferred_at")
         and not parse_bool(existing.get("decision_exists"))
         and updates.get("decision_exists") is True
         and "category" not in updates
@@ -725,8 +728,14 @@ def validate_category_update(existing: dict[str, Any], updates: dict[str, Any]) 
         return
 
     normalized_requested = normalize_text(requested_category)
-    if normalized_requested not in CATEGORIES:
+    in_csi = bool(existing.get("csi_transferred_at"))
+    is_csi_work = in_csi and normalized_requested == CSI_CATEGORY_IN_WORK
+    if normalized_requested not in CATEGORIES and not is_csi_work:
         raise HTTPException(status_code=400, detail="Недопустимая категория.")
+
+    merged = merge_row(existing, updates)
+    if is_csi_fully_paid(merged):
+        raise HTTPException(status_code=400, detail="Категория «Закрыт по ЧСИ» выставляется автоматически.")
 
     if (
         not existing.get("parent_debtor_id")
@@ -738,7 +747,9 @@ def validate_category_update(existing: dict[str, Any], updates: dict[str, Any]) 
             detail="У материнской записи с подстрокой возврата категория зафиксирована на «Возврат в работу Юр. Отдела».",
         )
 
-    merged = merge_row(existing, updates)
+    if is_csi_work:
+        return
+
     auto_category = determine_auto_category(merged)
     if (
         existing.get("parent_debtor_id")
@@ -1520,15 +1531,14 @@ def apply_csi_transfer_state(existing: dict[str, Any], updates: dict[str, Any]) 
         return updates
 
     requested_category = normalize_text(updates.get("category"))
-    existing_category = normalize_text(existing.get("category"))
     existing_marker = normalize_text(existing.get("csi_transferred_at"))
 
     if requested_category == CATEGORY_TRANSFER_TO_CSI:
-        if existing_category != CATEGORY_TRANSFER_TO_CSI or not existing_marker:
+        if not existing_marker:
             updates["csi_transferred_at"] = datetime.now().replace(microsecond=0).isoformat()
         return updates
 
-    if existing_marker:
+    if existing_marker and requested_category != CSI_CATEGORY_IN_WORK:
         updates["csi_transferred_at"] = None
 
     return updates
@@ -2402,10 +2412,29 @@ def render_incoming_claim_response_pdf(
     return output_path
 
 
+def is_csi_fully_paid(row: dict[str, Any]) -> bool:
+    if not row.get("csi_transferred_at"):
+        return False
+    payout = parse_float(row.get("decision_payout"))
+    return payout > 0 and parse_float(row.get("received_amount")) >= payout
+
+
 def resolve_category_state(row: dict[str, Any]) -> dict[str, Any]:
+    if is_csi_fully_paid(row):
+        return {
+            "category": CSI_CATEGORY_CLOSED,
+            "is_locked": True,
+            "is_auto": True,
+            "options": [CSI_CATEGORY_CLOSED],
+        }
+
+    in_csi = bool(row.get("csi_transferred_at"))
+    categories = [*CATEGORIES, CSI_CATEGORY_IN_WORK] if in_csi else CATEGORIES
     stored_category = normalize_text(row.get("category")) or DEFAULT_CATEGORY
     auto_category = determine_auto_category(row)
-    manual_override_active = stored_category in PRIORITY_CATEGORY_OVERRIDES
+    manual_override_active = stored_category in PRIORITY_CATEGORY_OVERRIDES or (
+        in_csi and stored_category == CSI_CATEGORY_IN_WORK
+    )
     is_return_rework = bool(row.get("parent_debtor_id"))
     decision_exists = parse_bool(row.get("decision_exists"))
     has_return_rework_child = bool(row.get("has_return_rework_child"))
@@ -2424,7 +2453,7 @@ def resolve_category_state(row: dict[str, Any]) -> dict[str, Any]:
             "category": stored_category,
             "is_locked": False,
             "is_auto": False,
-            "options": CATEGORIES,
+            "options": categories,
         }
 
     if imported_category_override:
@@ -2432,27 +2461,27 @@ def resolve_category_state(row: dict[str, Any]) -> dict[str, Any]:
             "category": stored_category,
             "is_locked": False,
             "is_auto": False,
-            "options": CATEGORIES,
+            "options": categories,
         }
 
     if manual_override_active and auto_category is not None:
         effective_category = stored_category
-        options = category_options_for(auto_category, stored_category)
+        options = category_options_for(auto_category, stored_category, in_csi=in_csi)
         return {"category": effective_category, "is_locked": True, "is_auto": False, "options": options}
 
     if auto_category is not None:
-        options = category_options_for(auto_category, stored_category)
+        options = category_options_for(auto_category, stored_category, in_csi=in_csi)
         return {"category": auto_category, "is_locked": True, "is_auto": True, "options": options}
 
     return {
         "category": stored_category,
         "is_locked": False,
         "is_auto": False,
-        "options": CATEGORIES,
+        "options": categories,
     }
 
 
-def category_options_for(auto_category: str | None, stored_category: str) -> list[str]:
+def category_options_for(auto_category: str | None, stored_category: str, *, in_csi: bool = False) -> list[str]:
     options: list[str] = []
     if auto_category:
         options.append(auto_category)
@@ -2461,6 +2490,8 @@ def category_options_for(auto_category: str | None, stored_category: str) -> lis
     for category in CATEGORIES:
         if category in PRIORITY_CATEGORY_OVERRIDES and category not in options:
             options.append(category)
+    if in_csi:
+        options.append(CSI_CATEGORY_IN_WORK)
     return options
 
 
@@ -2769,6 +2800,7 @@ def reference_data(country: str = DEFAULT_COUNTRY, _user: dict[str, Any] = Depen
 
     return {
         "categories": CATEGORIES,
+        "csiCategories": [CSI_CATEGORY_IN_WORK, CSI_CATEGORY_CLOSED],
         "companies": get_companies_by_country(normalized_country),
         "cities": catalog["cities"],
         "regions": catalog["regions"],
