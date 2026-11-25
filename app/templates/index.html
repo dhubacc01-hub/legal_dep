@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ page_title }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}" />
+    <link rel="stylesheet" href="{{ static_asset_url(request, 'styles.css') }}" />
   </head>
   <body>
     <div class="app-shell">
@@ -21,12 +21,7 @@
         </div>
       </header>
 
-      <nav class="nav-tabs">
-        <a class="nav-tab active" href="/">Должники</a>
-        <a class="nav-tab" href="/incoming-correspondence">Входящая корреспонденция</a>
-        <a class="nav-tab" href="/csi">ЧСИ</a>
-        <a class="nav-tab" href="/court-cases">Суды</a>
-      </nav>
+      {% include "navigation.html" %}
 
       <main class="content">
         <section class="actions-bar">
@@ -596,7 +591,7 @@
     <script>
       window.__APP_CONTEXT__ = {{ app_context_json | safe }};
     </script>
-    <script src="{{ url_for('static', path='exports.js') }}" defer></script>
-    <script src="{{ url_for('static', path='app.js') }}" defer></script>
+    <script src="{{ static_asset_url(request, 'exports.js') }}" defer></script>
+    <script src="{{ static_asset_url(request, 'app.js') }}" defer></script>
   </body>
 </html>

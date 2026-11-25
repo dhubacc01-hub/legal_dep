@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import re
 from datetime import date, datetime, timedelta
@@ -291,6 +292,30 @@ app = FastAPI(title="Legal Department", version="0.3.0")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 UZ_BRV_AMOUNT = 412000.0
+
+
+@lru_cache(maxsize=128)
+def static_asset_digest(path: Path, modified_ns: int, size: int) -> str:
+    # File metadata invalidates the cached content hash when an asset is updated.
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+
+
+def static_asset_url(request: Request, filename: str):
+    path = BASE_DIR / "static" / filename
+    metadata = path.stat()
+    version = static_asset_digest(path, metadata.st_mtime_ns, metadata.st_size)
+    return request.url_for("static", path=filename).include_query_params(v=version)
+
+
+templates.env.globals["static_asset_url"] = static_asset_url
+
+
+@app.middleware("http")
+async def prevent_stale_html(request: Request, call_next):
+    response = await call_next(request)
+    if response.headers.get("content-type", "").split(";", 1)[0] == "text/html":
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.on_event("startup")
@@ -2665,7 +2690,7 @@ def court_cases_page(request: Request) -> HTMLResponse:
     if user is None:
         return templates.TemplateResponse("login.html", {"request": request, "page_title": "Legal Department Login"})
     return templates.TemplateResponse("incoming_correspondence.html", {
-        "request": request, "page_title": "Суды", "court_cases": True,
+        "request": request, "page_title": "Суды", "court_cases": True, "active_page": "courts",
         "app_context_json": json.dumps({"user": serialize_user(user), "page": "courts"}, ensure_ascii=False),
     })
 
