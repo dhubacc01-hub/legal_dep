@@ -4,13 +4,14 @@ const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 
-function pageContext(filename) {
+function pageContext(filename, appPage = null) {
   const element = { value: "", querySelector: () => null, querySelectorAll: () => [], addEventListener() {} };
   element.elements = new Proxy({}, { get: () => element });
   const document = { getElementById: () => element, querySelector: () => element, querySelectorAll: () => [], addEventListener() {} };
-  const window = { __APP_CONTEXT__: {}, localStorage: { getItem: () => null } };
+  const window = { __APP_CONTEXT__: appPage ? { page: appPage } : {}, localStorage: { getItem: () => null } };
   const context = vm.createContext({ document, window, localStorage: window.localStorage, console });
   const source = fs.readFileSync(path.join(__dirname, "..", "app", "static", filename), "utf8");
+  if (appPage === "courts") vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "app", "static", "court_cases.js"), "utf8"), context);
   vm.runInContext(filename === "incoming_correspondence.js" ? source.slice(0, source.lastIndexOf("init().catch")) : source, context);
   return context;
 }
@@ -192,6 +193,28 @@ test("incoming export respects active tab, multi-select empty values, text and d
   assert.equal(vm.runInContext("filteredRecords().map(r => r.id).join(',')", context), "1");
   vm.runInContext('state.currentTab = "other"; state.filters = buildDefaultFilters();', context);
   assert.equal(vm.runInContext("filteredRecords().map(r => r.id).join(',')", context), "3");
+});
+
+test("court cases have all columns and independent boolean/date filters", () => {
+  const context = pageContext("incoming_correspondence.js", "courts");
+  vm.runInContext(`
+    state.filters = buildDefaultFilters();
+    state.records = [
+      { id: 1, company: "A", claim_sent: true, response_exists: "Да", notification_date_iso: "2026-11-25" },
+      { id: 2, company: "B", claim_sent: false, response_exists: "Нет", notification_date_iso: "2026-11-24" }
+    ];
+    state.filters.claim_sent = ["Да"];
+    state.filters.notification_date = { from: "2026-11-25", to: "2026-11-25" };
+  `, context);
+  assert.equal(vm.runInContext("getColumns().length", context), 21);
+  const nameCell = vm.runInContext('window.CourtCases.cell({ id: 5, client_name: "<Client>" }, { key: "client_name" })', context);
+  assert.match(nameCell, /data-case-documents="5"/);
+  assert.match(nameCell, /&lt;Client&gt;/);
+  assert.equal(vm.runInContext("filteredRecords().map(row => row.id).join(',')", context), "1");
+  assert.match(vm.runInContext('window.CourtCases.cell({ id: 1, claim_sent: false }, { key: "claim_date" })', context), /disabled/);
+  assert.match(vm.runInContext('window.CourtCases.cell({ id: 1, lawsuit_exists: false }, { key: "hearing_date" })', context), /disabled/);
+  assert.match(vm.runInContext('window.CourtCases.cell({ id: 1, decision: null }, { key: "decision_payout" })', context), /disabled/);
+  assert.doesNotMatch(vm.runInContext('window.CourtCases.cell({ id: 1, decision: "Частично" }, { key: "decision_payout" })', context), /disabled/);
 });
 
 function exportUi(selection) {

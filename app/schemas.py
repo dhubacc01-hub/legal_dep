@@ -147,7 +147,7 @@ class PaymentReportPdfRequest(BaseModel):
 
 
 class TableExportRequest(BaseModel):
-    source: Literal["debtors", "csi", "incoming_claims", "incoming_other"]
+    source: Literal["debtors", "csi", "incoming_claims", "incoming_other", "courts"]
     country: Literal["kz", "uz"]
     format: Literal["pdf", "xlsx"]
     report: Literal["table", "payments"] = "table"

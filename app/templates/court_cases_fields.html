@@ -1,0 +1,11 @@
+<label><span>Дата уведомления</span><input name="notification_date" class="date-input" data-date-input="true" placeholder="дд.мм.гггг" autocomplete="off" /></label>
+<label><span>Дата контракта</span><input name="contract_date" class="date-input" data-date-input="true" placeholder="дд.мм.гггг" autocomplete="off" /></label>
+<label><span>Город</span><input name="city" maxlength="255" /></label>
+<label><span>Была претензия?</span><select name="claim_sent"><option value="false">Нет</option><option value="true">Да</option></select></label>
+<label><span>Дата претензии</span><input name="claim_date" class="date-input" data-date-input="true" placeholder="дд.мм.гггг" autocomplete="off" /></label>
+<label><span>Есть иск</span><select name="lawsuit_exists"><option value="false">Нет</option><option value="true">Да</option></select></label>
+<label><span>Дата заседания</span><input name="hearing_date" class="date-input" data-date-input="true" placeholder="дд.мм.гггг" autocomplete="off" /></label>
+<label><span>Решение</span><select name="decision"><option value="">—</option><option>Удовлетворить</option><option>Частично</option><option>По соглашению сторон</option><option>Не удовлетворен</option></select></label>
+<label><span>Сумма выплаты по решению</span><input name="decision_payout" type="number" min="0" step="0.01" /></label>
+<label><span>Номер дела</span><input name="case_number" maxlength="255" /></label>
+<label class="modal-full-width"><span>Суд по делу</span><input name="case_court" list="court-case-courts" maxlength="1000" /><datalist id="court-case-courts"></datalist></label>

@@ -139,6 +139,22 @@ class ExportReportsTests(unittest.TestCase):
         self.assertEqual(self.request_export(report="payments").status_code, 400)
         self.assertEqual(self.request_export(report="payments", date_from="2026-04-01", date_to="2026-03-01").status_code, 400)
 
+    def test_court_cases_export_selected_country_and_rows(self):
+        with closing(database.get_connection()) as connection, connection:
+            for record_id, country in ((1, "kz"), (2, "kz"), (3, "uz")):
+                connection.execute("""
+                    INSERT INTO court_cases (id, country, created_at, client_name, contract_number, company,
+                        decision, decision_payout) VALUES (?, ?, '2026-11-25', ?, '010125/1M-1', 'Company', 'Частично', 123)
+                """, (record_id, country, f"Case {record_id}"))
+        sheet = self.workbook(self.request_export(source="courts", record_ids=[2]))
+        self.assertEqual(sheet["D6"].value, "Case 2")
+        self.assertEqual(sheet["P6"].value, 123)
+        self.assertEqual(sheet["P7"].value, 123)
+        self.assertEqual(sheet.auto_filter.ref, "A5:S6")
+        self.assertEqual(self.request_export(source="courts", record_ids=[3]).status_code, 409)
+        self.assertEqual(self.request_export(source="courts", record_ids=[2], report="payments").status_code, 400)
+        self.assertEqual(self.request_export(source="courts", record_ids=[2], format="pdf").status_code, 200)
+
     def test_pdf_exports_all_sources(self):
         for source, country, row_id in (("debtors", "kz", 1), ("csi", "uz", 5), ("incoming_claims", "kz", 1), ("incoming_other", "uz", 4)):
             with self.subTest(source=source):

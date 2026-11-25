@@ -44,6 +44,10 @@ if [[ "$INCLUDE_GENERATED" == "1" ]] && [[ -d "$GENERATED_DIR" ]]; then
   tar_args+=(-C "$DATA_DIR" "$(basename "$GENERATED_DIR")")
 fi
 
+if [[ -d "$DATA_DIR/uploads" ]]; then
+  tar_args+=(-C "$DATA_DIR" "uploads")
+fi
+
 tar "${tar_args[@]}"
 rm -f "$sqlite_copy_path"
 

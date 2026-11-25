@@ -20,6 +20,43 @@ def get_connection() -> sqlite3.Connection:
 
 def init_db() -> None:
     with get_connection() as connection:
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS court_cases (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                country TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                notification_date TEXT,
+                contract_date TEXT,
+                client_name TEXT NOT NULL,
+                contract_number TEXT NOT NULL,
+                company TEXT NOT NULL,
+                city TEXT NOT NULL DEFAULT '',
+                court TEXT NOT NULL DEFAULT '',
+                claim_sent INTEGER NOT NULL DEFAULT 0,
+                claim_date TEXT,
+                lawsuit_exists INTEGER NOT NULL DEFAULT 0,
+                hearing_date TEXT,
+                decision TEXT,
+                decision_payout REAL NOT NULL DEFAULT 0,
+                comment TEXT,
+                case_number TEXT,
+                case_court TEXT NOT NULL DEFAULT ''
+            )
+        """)
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_court_cases_country ON court_cases(country, id)")
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS court_case_documents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                court_case_id INTEGER NOT NULL REFERENCES court_cases(id),
+                title TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                original_filename TEXT NOT NULL,
+                storage_name TEXT NOT NULL UNIQUE,
+                size_bytes INTEGER NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_case_documents_case ON court_case_documents(court_case_id)")
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS debtors (

@@ -19,6 +19,7 @@ from app.pdf_rendering import load_font, wrap_text
 SOURCE_TITLES = {
     "debtors": "Должники",
     "csi": "ЧСИ",
+    "courts": "Суды",
     "incoming_claims": "Входящая корреспонденция: претензии",
     "incoming_other": "Входящая корреспонденция: прочее",
 }
@@ -104,6 +105,18 @@ def incoming_columns(claims: bool) -> list[Column]:
 
 def table_report(source: str, country: str, rows: list[dict]) -> Report:
     columns = incoming_columns(source == "incoming_claims") if source.startswith("incoming_") else debtor_columns(country)
+    if source == "courts":
+        columns = [
+            Column("entry_date_iso", "Дата внесения", "date"), Column("notification_date_iso", "Дата уведомления", "date"),
+            Column("contract_date_iso", "Дата контракта", "date"), Column("client_name", "ФИО клиента", width=300),
+            Column("contract_number", "Номер договора"), Column("company", "Компания"), Column("city", "Город"),
+            Column("court", "Суд", width=300), Column("claim_sent", "Была претензия?", "bool"),
+            Column("claim_date_iso", "Дата претензии", "date"), Column("response_exists", "Ответ на претензию"),
+            Column("response_file_url", "Файл ответа"), Column("lawsuit_exists", "Есть иск", "bool"),
+            Column("hearing_date_iso", "Дата заседания", "date"), Column("decision", "Решение"),
+            Column("decision_payout", f"Сумма выплаты по решению ({'сум' if country == 'uz' else 'тг'})", "money"),
+            Column("comment", "Комментарий", width=330), Column("case_number", "Номер дела"), Column("case_court", "Суд по делу", width=300),
+        ]
     prepared = [dict(row) for row in rows]
     if source in ("debtors", "csi"):
         by_id = {row["id"]: row for row in prepared}

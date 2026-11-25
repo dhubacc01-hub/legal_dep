@@ -13,7 +13,7 @@
           <div class="brand-mark">Legal Department</div>
           <div>
             <p class="eyebrow">Юридический департамент</p>
-            <h1>Входящая корреспонденция</h1>
+            <h1>{{ page_title }}</h1>
           </div>
         </div>
         <div class="topbar-actions">
@@ -30,6 +30,8 @@
       <nav class="nav-tabs">
         <a class="nav-tab" href="/">Должники</a>
         <a class="nav-tab active" href="/incoming-correspondence">Входящая корреспонденция</a>
+        <a class="nav-tab" href="/csi">ЧСИ</a>
+        <a class="nav-tab" href="/court-cases">Суды</a>
       </nav>
 
       <main class="content">
@@ -38,7 +40,7 @@
           <button class="primary-button" id="open-incoming-modal" type="button">Добавить запись</button>
         </section>
 
-        <section class="correspondence-tabs" aria-label="Вкладки корреспонденции">
+        <section class="correspondence-tabs {% if court_cases %}hidden{% endif %}" aria-label="Вкладки корреспонденции">
           <button class="tab-chip active" id="incoming-tab-claims" type="button" data-tab="claims">Претензии</button>
           <button class="tab-chip" id="incoming-tab-other" type="button" data-tab="other">Прочее</button>
         </section>
@@ -50,7 +52,7 @@
 
         <section class="table-card">
           <div class="table-wrap">
-            <table class="incoming-table" id="incoming-table">
+            <table class="incoming-table {% if court_cases %}court-cases-table{% endif %}" id="incoming-table">
               <thead id="incoming-thead"></thead>
               <tbody id="incoming-tbody">
                 <tr class="empty-row">
@@ -68,7 +70,7 @@
         <div class="modal-header">
           <div>
             <p class="eyebrow" id="incoming-modal-eyebrow">Новая запись</p>
-            <h3 id="incoming-modal-title">Входящая корреспонденция</h3>
+            <h3 id="incoming-modal-title">{{ page_title }}</h3>
           </div>
           <button class="icon-button" id="close-incoming-modal" type="button" aria-label="Закрыть">&times;</button>
         </div>
@@ -88,6 +90,7 @@
           <div class="modal-inline-status hidden" id="incoming-crm-status" aria-live="polite"></div>
 
           <div class="incoming-details hidden" id="incoming-details">
+            {% if court_cases %}{% include "court_cases_fields.html" %}{% endif %}
             <label>
               <span>Дата получения письма</span>
               <input
@@ -317,10 +320,15 @@
     </div>
 
     {% include "export_modal.html" %}
+    {% if court_cases %}{% include "court_documents.html" %}{% endif %}
     <script>
       window.__APP_CONTEXT__ = {{ app_context_json | safe }};
     </script>
     <script src="{{ url_for('static', path='exports.js') }}" defer></script>
+    {% if court_cases %}
+    <script src="{{ url_for('static', path='court_documents.js') }}" defer></script>
+    <script src="{{ url_for('static', path='court_cases.js') }}" defer></script>
+    {% endif %}
     <script src="{{ url_for('static', path='incoming_correspondence.js') }}" defer></script>
   </body>
 </html>

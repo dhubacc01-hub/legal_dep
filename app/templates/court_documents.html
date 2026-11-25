@@ -1,0 +1,31 @@
+<div class="court-documents-backdrop hidden" id="court-documents-backdrop">
+  <aside class="court-documents-panel" id="court-documents-panel" role="dialog" aria-modal="true" aria-labelledby="court-documents-title" tabindex="-1">
+    <div class="modal-header">
+      <div><p class="eyebrow">Документы клиента</p><h3 id="court-documents-title"></h3></div>
+      <button class="icon-button" id="close-court-documents" type="button" aria-label="Закрыть документы">&times;</button>
+    </div>
+    <p class="court-documents-contract" id="court-documents-contract"></p>
+    <button class="primary-button" id="add-court-document" type="button">Добавить документ</button>
+    <p class="modal-inline-status" id="court-documents-status" role="status" aria-live="polite"></p>
+    <div class="court-documents-list" id="court-documents-list"></div>
+    <button class="secondary-button hidden" id="retry-court-documents" type="button">Повторить загрузку</button>
+  </aside>
+</div>
+<div class="modal-backdrop hidden court-document-modal" id="court-document-modal-backdrop">
+  <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="court-document-modal-title">
+    <div class="modal-header">
+      <h3 id="court-document-modal-title">Добавить документ</h3>
+      <button class="icon-button" id="close-court-document-modal" type="button" aria-label="Закрыть добавление документа">&times;</button>
+    </div>
+    <form class="modal-form" id="court-document-form">
+      <label class="modal-full-width"><span>Название документа</span><input name="title" required maxlength="255" /></label>
+      <label class="modal-full-width"><span>Документ (до 20 МБ)</span><input name="file" type="file" required /></label>
+      <label class="modal-full-width"><span>Краткое описание</span><textarea name="description" rows="3" maxlength="2000"></textarea></label>
+      <p class="modal-inline-status modal-full-width" id="court-document-upload-status" role="status" aria-live="polite"></p>
+      <div class="modal-actions">
+        <button class="secondary-button" id="cancel-court-document-modal" type="button">Отмена</button>
+        <button class="primary-button" id="save-court-document" type="submit">Сохранить</button>
+      </div>
+    </form>
+  </div>
+</div>

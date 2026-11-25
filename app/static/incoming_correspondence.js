@@ -1,6 +1,8 @@
 const COUNTRY_STORAGE_KEY = "legal-department-country";
 const EMPTY_FILTER_VALUE = "__EMPTY__";
 const APP_PAGE = window.__APP_CONTEXT__?.page ?? "incoming";
+const COURT_PAGE = APP_PAGE === "courts";
+const RECORDS_ENDPOINT = COURT_PAGE ? "/api/court-cases" : "/api/incoming-correspondence";
 
 const INCOMING_CLAIM_CATEGORY = "Претензия";
 const AUTHORITY_COURT = "court";
@@ -116,6 +118,7 @@ const datePickerTitleMonth = datePickerPopover?.querySelector(".date-picker-titl
 const datePickerTitleYear = datePickerPopover?.querySelector(".date-picker-title-year");
 
 function getColumns() {
+  if (COURT_PAGE) return window.CourtCases.columns();
   return TAB_COLUMNS[state.currentTab];
 }
 
@@ -124,7 +127,7 @@ function buildDefaultFilters() {
     getColumns()
       .filter((column) => !["action", "delete"].includes(column.key))
       .map((column) => {
-        if (column.type === "date") {
+        if (column.type === "date" || column.type === "number") {
           return [column.key, { from: "", to: "" }];
         }
         if (column.type === "select") {
@@ -158,19 +161,20 @@ function syncPrimaryNavigation() {
     nav.appendChild(csiLink);
   }
 
-  const activeHref = APP_PAGE === "incoming" ? "/incoming-correspondence" : APP_PAGE === "csi" ? "/csi" : "/";
+  const activeHref = COURT_PAGE ? "/court-cases" : APP_PAGE === "incoming" ? "/incoming-correspondence" : APP_PAGE === "csi" ? "/csi" : "/";
   nav.querySelectorAll(".nav-tab").forEach((link) => {
     link.classList.toggle("active", link.getAttribute("href") === activeHref);
   });
 }
 
 function bindEvents() {
+  if (COURT_PAGE) window.CourtCases.bind();
   window.LegalExport.init({
     closeDatePicker,
     getSelection: () => ({
-      source: state.currentTab === "claims" ? "incoming_claims" : "incoming_other",
+      source: COURT_PAGE ? "courts" : state.currentTab === "claims" ? "incoming_claims" : "incoming_other",
       country: state.currentCountry,
-      title: `Корреспонденция: ${state.currentTab === "claims" ? "Претензии" : "Прочее"} · ${state.currentCountry.toUpperCase()}`,
+      title: `${COURT_PAGE ? "Суды" : "Корреспонденция"} · ${state.currentCountry.toUpperCase()}`,
       payments: false,
       record_ids: filteredRecords().map((record) => record.id),
     }),
@@ -264,7 +268,7 @@ async function loadReferenceData() {
 }
 
 async function loadRecords() {
-  const response = await fetch(`/api/incoming-correspondence?country=${encodeURIComponent(state.currentCountry)}`, {
+  const response = await fetch(`${RECORDS_ENDPOINT}?country=${encodeURIComponent(state.currentCountry)}`, {
     credentials: "same-origin",
   });
   if (!response.ok) {
@@ -366,7 +370,7 @@ function setAuthorityKind(kind) {
 
 function filteredRecords() {
   return state.records
-    .filter((record) => (state.currentTab === "claims" ? record.category === INCOMING_CLAIM_CATEGORY : record.category !== INCOMING_CLAIM_CATEGORY))
+    .filter((record) => COURT_PAGE || (state.currentTab === "claims" ? record.category === INCOMING_CLAIM_CATEGORY : record.category !== INCOMING_CLAIM_CATEGORY))
     .filter((record) => matchesFilters(record));
 }
 
@@ -375,6 +379,10 @@ function matchesFilters(record) {
     .filter((column) => !["action", "delete"].includes(column.key))
     .every((column) => {
       const filterValue = state.filters[column.key];
+      if (column.type === "number") {
+        const value = Number(record[column.key] || 0);
+        return (filterValue.from === "" || value >= Number(filterValue.from)) && (filterValue.to === "" || value <= Number(filterValue.to));
+      }
       if (column.type === "date") {
         if (!filterValue.from && !filterValue.to) {
           return true;
@@ -396,7 +404,8 @@ function matchesFilters(record) {
         if (!filterValue.length) {
           return true;
         }
-        const value = String(record[column.key] ?? "").trim();
+        const raw = record[column.key];
+        const value = typeof raw === "boolean" ? (raw ? "Да" : "Нет") : String(raw ?? "").trim();
         if (!value && filterValue.includes(EMPTY_FILTER_VALUE)) {
           return true;
         }
@@ -485,10 +494,19 @@ function renderFilterCell(column) {
       </th>
     `;
   }
+  if (column.type === "number") {
+    const value = state.filters[column.key];
+    return `<th class="filter-header-cell"><div class="filter-range">
+      <input class="filter-control" type="number" step="any" data-filter-key="${column.key}" data-bound="from" placeholder="от" value="${escapeHtmlAttribute(value.from)}" />
+      <input class="filter-control" type="number" step="any" data-filter-key="${column.key}" data-bound="to" placeholder="до" value="${escapeHtmlAttribute(value.to)}" />
+    </div></th>`;
+  }
   if (column.type === "select") {
     let options;
     if (column.key === "company") {
       options = state.referenceData?.companies ?? [];
+    } else if (column.options) {
+      options = column.options;
     } else if (column.key === "receive_method") {
       options = RECEIVE_METHOD_OPTIONS;
     } else if (column.key === "response_text") {
@@ -535,6 +553,10 @@ function renderFilterCell(column) {
 }
 
 function renderCell(record, column) {
+  if (COURT_PAGE) {
+    const cell = window.CourtCases.cell(record, column);
+    if (cell !== null) return cell;
+  }
   if (column.key === "action") {
     return `<td><button class="secondary-button compact-button" type="button" data-action="edit" data-id="${record.id}">Ред.</button></td>`;
   }
@@ -567,7 +589,9 @@ function renderActiveFilters() {
       if (value.from || value.to) {
         chips.push({
           key,
-          text: `${labelForColumn(key)}: ${formatDisplayDate(value.from) || "—"} -> ${formatDisplayDate(value.to) || "—"}`,
+          text: getColumns().find(column => column.key === key)?.type === "number"
+            ? `${labelForColumn(key)}: ${value.from || "—"} -> ${value.to || "—"}`
+            : `${labelForColumn(key)}: ${formatDisplayDate(value.from) || "—"} -> ${formatDisplayDate(value.to) || "—"}`,
         });
       }
       continue;
@@ -614,7 +638,7 @@ function handleFilterChange(event) {
     return;
   }
   if (event.target.dataset.bound) {
-    state.filters[key][event.target.dataset.bound] = parseDisplayDateValue(event.target.value) || "";
+    state.filters[key][event.target.dataset.bound] = event.target.type === "number" ? event.target.value : parseDisplayDateValue(event.target.value) || "";
   } else if (event.target.type === "checkbox") {
     state.filters[key] = [...thead.querySelectorAll(`input[type="checkbox"][data-filter-key="${key}"]:checked`)].map(
       (checkbox) => checkbox.value,
@@ -709,6 +733,7 @@ function closeClaimResponseModal() {
 }
 
 function openModal(mode, recordId = null) {
+  if (COURT_PAGE) return window.CourtCases.open(mode, recordId);
   state.modalMode = mode;
   state.editingId = recordId;
   form.reset();
@@ -758,6 +783,8 @@ function closeModal() {
 
 async function handleCrmLookup() {
   const contractNumber = String(form.elements.contract_number.value || "").trim();
+  const lookupCountry = state.currentCountry;
+  const lookupEditingId = state.editingId;
   if (!contractNumber) {
     showCrmStatus("Сначала введите номер договора.", "error");
     return;
@@ -774,6 +801,9 @@ async function handleCrmLookup() {
       return;
     }
     const payload = await response.json();
+    if (COURT_PAGE && (state.currentCountry !== lookupCountry || state.editingId !== lookupEditingId
+      || modalBackdrop.classList.contains("hidden") || form.elements.contract_number.value.trim() !== contractNumber)) return;
+    if (COURT_PAGE) window.CourtCases.prefill(payload);
     form.elements.client_name.value = payload.client_name || "";
     if (!form.elements.company.value && payload.company) {
       form.elements.company.value = payload.company;
@@ -885,6 +915,7 @@ async function handleClaimResponseDownload(recordId) {
 
 async function handleSubmit(event) {
   event.preventDefault();
+  if (COURT_PAGE) return window.CourtCases.saveForm();
   const category = String(categorySelect.value || "");
   if (!category) {
     alert("Сначала выберите категорию.");
@@ -945,7 +976,7 @@ async function handleSubmit(event) {
 }
 
 async function deleteRecord(id) {
-  const response = await fetch(`/api/incoming-correspondence/${id}`, {
+  const response = await fetch(`${RECORDS_ENDPOINT}/${id}`, {
     method: "DELETE",
     credentials: "same-origin",
   });
@@ -1247,6 +1278,7 @@ function applyDatePickerValue(isoValue) {
     return;
   }
   input.value = formatDisplayDate(isoValue) ?? "";
+  if (input.dataset.caseField) input.dispatchEvent(new Event("change", { bubbles: true }));
   if (input.id.startsWith("export-")) input.dispatchEvent(new Event("change", { bubbles: true }));
   if (input.dataset.filterKey) {
     handleFilterChange({ target: input });

@@ -13,6 +13,7 @@ Thumbs.db
 
 # Runtime and local data artifacts
 data/generated/
+data/uploads/
 data/courts_parsed/
 data/crm_credentials.json
 data/company_requisites.json

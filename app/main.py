@@ -59,6 +59,7 @@ from app.common_utils import (
     preferred_phone as common_preferred_phone,
 )
 from app.country_service import normalize_country_code as normalize_country_code_service
+from app.court_cases import create_router as create_court_cases_router, serialize_cases
 from app.court_reference_service import (
     align_city_with_court as align_city_with_court_service,
     build_reference_catalog as build_reference_catalog_service,
@@ -133,6 +134,7 @@ from app.schemas import (
 BASE_DIR = Path(__file__).resolve().parent
 PROJECTS_DIR = BASE_DIR.parent.parent
 GENERATED_DIR = BASE_DIR.parent / "data" / "generated"
+COURT_DOCUMENTS_DIR = BASE_DIR.parent / "data" / "uploads" / "court_documents"
 PDF_BROWSER_CANDIDATES = [
     Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"),
     Path(r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"),
@@ -2657,6 +2659,23 @@ def csi_page(request: Request) -> HTMLResponse:
     )
 
 
+@app.get("/court-cases", response_class=HTMLResponse)
+def court_cases_page(request: Request) -> HTMLResponse:
+    user = get_optional_current_user(request)
+    if user is None:
+        return templates.TemplateResponse("login.html", {"request": request, "page_title": "Legal Department Login"})
+    return templates.TemplateResponse("incoming_correspondence.html", {
+        "request": request, "page_title": "Суды", "court_cases": True,
+        "app_context_json": json.dumps({"user": serialize_user(user), "page": "courts"}, ensure_ascii=False),
+    })
+
+
+app.include_router(create_court_cases_router(
+    require_app_user, lambda: get_connection(), lambda name: resolve_incoming_claim_response_file_path(name),
+    lambda: COURT_DOCUMENTS_DIR,
+))
+
+
 @app.post("/api/auth/login", response_model=AuthMeResponse)
 def login(payload: LoginRequest) -> Response:
     username = payload.username.strip()
@@ -3250,7 +3269,7 @@ def export_filtered_table(
     from app.export_reports import payment_report, render_pdf, render_xlsx, table_report
 
     if payload.report == "payments":
-        if payload.source.startswith("incoming_"):
+        if payload.source.startswith("incoming_") or payload.source == "courts":
             raise HTTPException(status_code=400, detail="Для корреспонденции доступен экспорт таблицы.")
         if not payload.date_from or not payload.date_to:
             raise HTTPException(status_code=400, detail="Укажите обе даты периода.")
@@ -3259,7 +3278,9 @@ def export_filtered_table(
 
     requested_ids = list(dict.fromkeys(payload.record_ids))
     with closing(get_connection()) as connection:
-        if payload.source.startswith("incoming_"):
+        if payload.source == "courts":
+            rows = [dict(row) for row in connection.execute("SELECT * FROM court_cases WHERE country = ?", (payload.country,))]
+        elif payload.source.startswith("incoming_"):
             rows = [dict(row) for row in connection.execute(
                 "SELECT * FROM incoming_correspondence WHERE COALESCE(country, ?) = ?",
                 (DEFAULT_COUNTRY, payload.country),
@@ -3291,7 +3312,8 @@ def export_filtered_table(
             report = payment_report(payload.source, payload.country, payments, payload.date_from, payload.date_to)
         else:
             serialize = serialize_incoming_correspondence if payload.source.startswith("incoming_") else serialize_debtor
-            report = table_report(payload.source, payload.country, [serialize(row) for row in selected])
+            records = serialize_cases(connection, selected, resolve_incoming_claim_response_file_path) if payload.source == "courts" else [serialize(row) for row in selected]
+            report = table_report(payload.source, payload.country, records)
 
     render = render_pdf if payload.format == "pdf" else render_xlsx
     path = render(report, GENERATED_DIR)
