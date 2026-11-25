@@ -68,6 +68,7 @@ from app.court_reference_service import (
     merge_static_court_catalog as merge_static_court_catalog_service,
 )
 from app.court_catalog import load_official_court_catalog, merge_court_catalog
+from app.csi_writ import render_dispatch_pdf, render_writ_pdf
 from app.database import get_connection, init_db
 from app.disell_api import DiSellApiClient, DiSellApiError
 from app.document_helpers import (
@@ -114,6 +115,8 @@ from app.schemas import (
     ChangePasswordRequest,
     ClaimPdfGenerateRequest,
     CsiExportPdfRequest,
+    CsiDispatchPdfRequest,
+    CsiWritPdfRequest,
     CourtCreate,
     CrmDebtorLookupResponse,
     DebtorCreate,
@@ -3774,6 +3777,38 @@ def generate_claim_pdf_with_confirmation(
     )
     file_name = f"pretenziya_{debtor_id}.pdf"
     return FileResponse(pdf_path, media_type="application/pdf", filename=file_name)
+
+
+@app.post("/api/debtors/{debtor_id}/csi-writ-pdf")
+def generate_csi_writ_pdf(
+    debtor_id: int,
+    payload: CsiWritPdfRequest,
+    _user: dict[str, Any] = Depends(require_app_user),
+) -> FileResponse:
+    with get_connection() as connection:
+        existing = connection.execute("SELECT * FROM debtors WHERE id = ?", (debtor_id,)).fetchone()
+        if existing is None:
+            raise HTTPException(404, "Запись не найдена.")
+        debtor = dict(existing)
+        payments = list_debtor_received_payments(connection, debtor)
+    path = render_writ_pdf(debtor, payments, payload, generated_dir=GENERATED_DIR)
+    return FileResponse(path, media_type="application/pdf", filename=f"csi_writ_{debtor_id}.pdf")
+
+
+@app.post("/api/debtors/{debtor_id}/csi-dispatch-pdf")
+def generate_csi_dispatch_pdf(
+    debtor_id: int,
+    payload: CsiDispatchPdfRequest,
+    _user: dict[str, Any] = Depends(require_app_user),
+) -> FileResponse:
+    with get_connection() as connection:
+        existing = connection.execute("SELECT * FROM debtors WHERE id = ?", (debtor_id,)).fetchone()
+        if existing is None:
+            raise HTTPException(404, "Запись не найдена.")
+        debtor = dict(existing)
+        payments = list_debtor_received_payments(connection, debtor)
+    path = render_dispatch_pdf(debtor, payments, payload, generated_dir=GENERATED_DIR)
+    return FileResponse(path, media_type="application/pdf", filename=f"csi_dispatch_{debtor_id}.pdf")
 
 
 @app.post("/api/debtors/{debtor_id}/lawsuit-pdf")

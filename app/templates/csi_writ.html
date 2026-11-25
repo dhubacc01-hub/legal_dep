@@ -1,0 +1,27 @@
+<div class="modal-backdrop hidden" id="csi-writ-modal">
+  <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="csi-writ-title">
+    <div class="modal-header">
+      <div>
+        <p class="eyebrow">ЧСИ</p>
+        <h3 id="csi-writ-title">Выдача исполнительного листа</h3>
+      </div>
+      <button class="icon-button" type="button" data-close-writ aria-label="Закрыть">&times;</button>
+    </div>
+    <form id="csi-writ-form" class="modal-form">
+      <p class="modal-full-width" id="csi-writ-client"></p>
+      <label class="modal-full-width" id="csi-writ-judge-field">
+        <span>ФИО судьи (как в определении суда)</span>
+        <input name="judge_name" type="text" minlength="3" maxlength="255" required autocomplete="off" />
+      </label>
+      <label class="modal-full-width">
+        <span>Почта юриста</span>
+        <input name="lawyer_email" type="email" maxlength="254" value="mikhail.inozemtsev.dp@gmail.com" required />
+      </label>
+      <p class="modal-full-width" id="csi-writ-status" role="status" aria-live="polite"></p>
+      <div class="modal-actions modal-full-width">
+        <button class="secondary-button" type="button" data-close-writ>Отмена</button>
+        <button class="primary-button" type="submit">Генерировать</button>
+      </div>
+    </form>
+  </div>
+</div>

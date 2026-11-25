@@ -569,6 +569,10 @@ function getFilterPlaceholder(column) {
 
 function getLocalizedHeaders() {
   const headers = [...t("headers")];
+  if (state.appPage === "csi") {
+    headers[29] = extraLabel("writIssuance");
+    headers[30] = extraLabel("writDispatch");
+  }
   if (state.currentCountry !== "uz") {
     return headers;
   }
@@ -577,6 +581,20 @@ function getLocalizedHeaders() {
 
 function extraLabel(key) {
   const labels = {
+    writIssuance: {
+      ru: "Выдача исполнительного листа",
+      en: "Issuance of writ of execution",
+      uk: "Видача виконавчого листа",
+      pl: "Wydanie tytułu wykonawczego",
+      kk: "Атқару парағын беру",
+    },
+    writDispatch: {
+      ru: "Направление исполнительного листа",
+      en: "Dispatch of writ of execution",
+      uk: "Направлення виконавчого листа",
+      pl: "Przekazanie tytułu wykonawczego",
+      kk: "Атқару парағын жолдау",
+    },
     contractNo: {
       ru: "№ договора",
       en: "Contract no.",
@@ -3723,6 +3741,20 @@ async function handleClaimConfirmSubmit(event) {
 }
 
 function renderDocumentCells(debtor) {
+  if (state.appPage === "csi") {
+    const unavailable = state.currentCountry !== "kz";
+    return `<td class="document-cell">
+      <button class="secondary-button compact-button document-button" type="button"
+        data-csi-writ-button data-id="${debtor.id}" ${unavailable ? 'disabled title="Шаблон доступен для Казахстана"' : ""}>
+        ${t("pdf")}
+      </button>
+    </td><td class="document-cell">
+      <button class="secondary-button compact-button document-button" type="button"
+        data-csi-writ-button data-csi-document="dispatch" data-id="${debtor.id}" ${unavailable ? 'disabled title="Шаблон доступен для Казахстана"' : ""}>
+        ${t("pdf")}
+      </button>
+    </td>`;
+  }
   return `
     <td class="document-cell">
       <button class="secondary-button compact-button document-button claim-document-button" type="button" data-id="${debtor.id}">

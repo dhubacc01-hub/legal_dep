@@ -43,6 +43,17 @@ class PageRoutingTests(unittest.TestCase):
                     self.assertNotIn("/static/app.js", html)
                 self.assertEqual(response.headers["cache-control"], "no-store")
 
+    def test_csi_has_writ_headers_without_changing_debtors_headers(self):
+        for path in ("/csi", "/", "/csi"):
+            with self.subTest(path=path):
+                html = self.client.get(path).text
+                headers = re.findall(r"<th>(.*?)</th>", html)
+                expected = (["Выдача исполнительного листа", "Направление исполнительного листа"]
+                            if path == "/csi" else ["Генерация претензии", "Генерация иска"])
+                self.assertEqual(headers[-3:-1], expected)
+                self.assertEqual("/static/csi_documents.js?v=" in html, path == "/csi")
+                self.assertEqual('id="csi-writ-form"' in html, path == "/csi")
+
     def test_assets_have_content_fingerprints_and_are_served_with_query_parameters(self):
         response = self.client.get("/court-cases")
         urls = re.findall(r'(?:src|href)="([^"]+/static/[^" ]+)"', response.text)

@@ -141,6 +141,16 @@ class CsiExportPdfRequest(BaseModel):
     date_to: date
 
 
+class CsiDispatchPdfRequest(BaseModel):
+    model_config = {"str_strip_whitespace": True}
+
+    lawyer_email: str = Field(max_length=254, pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+
+
+class CsiWritPdfRequest(CsiDispatchPdfRequest):
+    judge_name: str = Field(min_length=3, max_length=255)
+
+
 class PaymentReportPdfRequest(BaseModel):
     date_from: date
     date_to: date

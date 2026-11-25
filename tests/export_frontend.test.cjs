@@ -166,6 +166,32 @@ test("CSI filters include work and closure categories only in the CSI table", ()
   assert.equal(vm.runInContext("csiOptions.join(',')", context), "Передать на ЧСИ,В работе,Закрыт по ЧСИ");
 });
 
+test("CSI replaces only document headers and cells for both countries", () => {
+  const context = pageContext("app.js");
+  for (const country of ["kz", "uz"]) {
+    vm.runInContext(`state.currentCountry = ${JSON.stringify(country)}; state.appPage = "debtors";`, context);
+    const debtorHeaders = JSON.parse(vm.runInContext("JSON.stringify(getLocalizedHeaders())", context));
+    const debtorCells = vm.runInContext("renderDocumentCells({ id: 7 })", context);
+    assert.match(debtorCells, /claim-document-button/);
+    assert.match(debtorCells, /lawsuit-document-button/);
+    vm.runInContext('state.appPage = "csi";', context);
+    const csiHeaders = JSON.parse(vm.runInContext("JSON.stringify(getLocalizedHeaders())", context));
+    assert.deepEqual(csiHeaders.slice(29, 31), ["Выдача исполнительного листа", "Направление исполнительного листа"]);
+    assert.deepEqual(csiHeaders.slice(0, 29), debtorHeaders.slice(0, 29));
+    assert.equal(csiHeaders[31], debtorHeaders[31]);
+    const csiCells = vm.runInContext("renderDocumentCells({ id: 7 })", context);
+    assert.equal((csiCells.match(/<td\b/g) || []).length, 2);
+    assert.match(csiCells, /data-csi-writ-button/);
+    assert.match(csiCells, /data-csi-document="dispatch"/);
+    assert.equal((csiCells.match(/data-csi-writ-button/g) || []).length, 2);
+    assert.doesNotMatch(csiCells, /claim-document-button|lawsuit-document-button/);
+    assert.equal(/\bdisabled\b/.test(csiCells), country === "uz");
+    vm.runInContext('state.appPage = "debtors";', context);
+    assert.equal(vm.runInContext("renderDocumentCells({ id: 7 })", context), debtorCells);
+    assert.deepEqual(JSON.parse(vm.runInContext("JSON.stringify(getLocalizedHeaders())", context)), debtorHeaders);
+  }
+});
+
 test("automatically closed CSI category cannot be edited in the table", () => {
   const context = pageContext("app.js");
   const markup = vm.runInContext(`renderCategorySelect({

@@ -82,8 +82,8 @@
                   <th>Комментарий</th>
                   <th>Номер дела</th>
                   <th>Суд по делу</th>
-                  <th>Генерация претензии</th>
-                  <th>Генерация иска</th>
+                  <th>{{ 'Выдача исполнительного листа' if active_page == 'csi' else 'Генерация претензии' }}</th>
+                  <th>{{ 'Направление исполнительного листа' if active_page == 'csi' else 'Генерация иска' }}</th>
                   <th>Удалить</th>
                 </tr>
               </thead>
@@ -588,10 +588,16 @@
       </div>
     </div>
 
+    {% if active_page == 'csi' %}
+    {% include "csi_writ.html" %}
+    {% endif %}
     <script>
       window.__APP_CONTEXT__ = {{ app_context_json | safe }};
     </script>
     <script src="{{ static_asset_url(request, 'exports.js') }}" defer></script>
     <script src="{{ static_asset_url(request, 'app.js') }}" defer></script>
+    {% if active_page == 'csi' %}
+    <script src="{{ static_asset_url(request, 'csi_documents.js') }}" defer></script>
+    {% endif %}
   </body>
 </html>
